@@ -139,8 +139,9 @@ Without a hold, the app would beep:
 - when GPS returns on a motorway after a tunnel.
 
 So while in ARMED, a reading at or above T whose *own* match is FAST, but where the FAST
-context is not yet confirmed, holds the beep for that reading. The first TOWN or UNKNOWN
-reading at or above T ends the hold. With the debounce already satisfied, the main beep
+context is not yet confirmed, holds the beep for that reading. A NEUTRAL reading in the
+middle of a run of FAST readings also holds, because it does not break the run (§4.2).
+The first TOWN or UNKNOWN reading at or above T ends the hold. With the debounce already satisfied, the main beep
 then sounds at once.
 
 The hold only delays entering OVER. Once OVER, only a confirmed FAST context silences the
@@ -150,9 +151,10 @@ The road context keeps being tracked in every state. PAUSED, NO_GPS and STOPPED 
 precedence over FAST_ROAD. When a pause ends on a fast road, the state goes straight to
 FAST_ROAD.
 
-When the road context leaves FAST, the state goes to ARMED. The normal debounce then
-applies, so leaving a motorway onto a town road at 70 km/h gives a main beep about 4 s
-after the exit ramp ends.
+When the road context leaves FAST, the state goes to ARMED. Readings on the fast road
+already count toward the 2-reading debounce. So leaving a motorway onto a town road at
+70 km/h gives a main beep about 2 s after the exit ramp ends, on the reading that switches
+the context back to NORMAL.
 
 ### 4.4 Simple mode
 
@@ -167,8 +169,8 @@ after the exit ramp ends.
 ### 5.1 Car link (automatic)
 
 - **Setup:** "Link my car" calls `CompanionDeviceManager.associate()` with a
-  `BluetoothDeviceFilter` and `setSingleDevice(true)`. The user picks the car in Android's
-  own dialog.
+  `BluetoothDeviceFilter` and `setSingleDevice(false)`, so Android's own dialog lists the
+  devices and the user picks the car.
 - **Presence:**
   - API 36: `startObservingDevicePresence(ObservingDevicePresenceRequest)`, handled in
     `CompanionDeviceService.onDevicePresenceEvent`.
