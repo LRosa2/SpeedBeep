@@ -44,6 +44,7 @@ Success means:
 | D10 | Fail toward beeping. An unknown or unmatched road counts as town. The app is slow to go silent on a fast road and quick to start beeping again. | design (a wrong silence costs a fine, a wrong beep only annoys) |
 | D11 | Speed is the GPS-reported (Doppler) speed, not distance divided by time. | design |
 | D12 | Auto-start goes through CompanionDeviceManager. A plain ACL_CONNECTED receiver cannot start a location foreground service from the background on Android 12+. | Android docs, see §8 |
+| D13 | Fast-road hold: a reading at or above T that itself matches a fast road does not trigger the beep before FAST is confirmed. Speed validity and position accuracy are judged separately. | design review (keeps town exits, on-ramps and tunnel exits silent without weakening D10) |
 
 ## 3. Components
 
@@ -76,9 +77,14 @@ There is no database.
 
 ### 4.1 Readings
 
-- A reading is used only if it has a speed, its accuracy is ≤ 25 m and it is ≤ 3 s old.
-  Anything else is ignored.
-- With no usable reading for 5 s, the state is **No GPS**. The app is silent and any
+- The **speed** of a reading is usable if it is ≤ 3 s old and has a speed, and, when the
+  phone reports a speed accuracy, that accuracy is ≤ 2 m/s (about 7 km/h). Only speed
+  usability decides whether the rules run.
+- The **position** of a reading is used for road matching only if its horizontal accuracy
+  is ≤ 25 m. A reading with a usable speed but a poor position still drives the threshold.
+  Its road match is *neutral* (§4.2). Poor accuracy in narrow streets therefore never
+  silences the app.
+- With no usable speed for 5 s, the state is **No GPS**. The app is silent and any
   running beep stops.
 - The heading is used for road matching only when the speed is ≥ 15 km/h. Below that,
   GPS bearing is unreliable.
@@ -92,15 +98,21 @@ The result is one of four:
 - **FAST:** the segment's class is fast (§6.2).
 - **TOWN:** the segment's class is town.
 - **UNKNOWN:** no segment matched, inside the covered area.
-- **NOT COVERED:** the position lies outside the file's coverage, or the file is missing.
+- **NOT COVERED:** none of the cells in the ±30 m box around the position (§6.4) exists
+  in the file, or the file is missing.
+- **NEUTRAL:** the position accuracy is worse than 25 m, so no match is attempted.
 
 The road context used by the rules has hysteresis:
 
 - It switches to **FAST** after **5 consecutive** FAST readings (about 5 s).
-- It switches back to **NORMAL** after **2 consecutive** non-FAST readings.
+- It switches back to **NORMAL** after **2 consecutive** TOWN or UNKNOWN readings.
 - TOWN and UNKNOWN both count as NORMAL, so the app beeps.
+- NEUTRAL readings neither count toward a switch nor break a run. After **10 s** of only
+  NEUTRAL readings, the context becomes NORMAL.
 - NOT COVERED makes the app behave as in **simple mode** (§4.4), and the notification
   says so.
+- **At service start** the context is NORMAL. During NO_GPS the last context is kept,
+  because it changes only through readings.
 
 ### 4.3 Speed state machine
 
@@ -113,12 +125,26 @@ Values (T and R are described in §7):
 | State | Entered when | Sound |
 |---|---|---|
 | **ARMED** | start; speed ≤ T − R from OVER or QUIET; road context leaves FAST; a pause ends | none |
-| **OVER** | in ARMED with road context NORMAL, speed ≥ T on 2 consecutive readings | main beep (settable length) on entry, then a reminder beep (one short tone) every N s **while speed ≥ T**. Between T − R and T no reminders sound, but the state stays OVER, so going back above T only resumes reminders and does not repeat the main beep. |
+| **OVER** | in ARMED with road context NORMAL, speed ≥ T on 2 consecutive readings, **and the latest reading's own match is not FAST** (the fast-road hold, see below) | main beep (settable length) on entry, then a reminder beep (one short tone) every N s **while speed ≥ T**. Between T − R and T no reminders sound, but the state stays OVER, so going back above T only resumes reminders and does not repeat the main beep. |
 | **QUIET** | "Quiet this stretch" pressed while OVER | none; returns to ARMED when speed ≤ T − R |
 | **PAUSED(until)** | "Pause N min" | none; GPS stays on and speed is shown; returns to ARMED at `until` or on Resume |
 | **FAST_ROAD** | road context switches to FAST (from ARMED, OVER or QUIET) | none; a running beep stops at once |
 | **NO_GPS** | no usable reading for 5 s | none |
 | **STOPPED** | "Stop", or the car is gone | service ended, GPS off |
+
+**Fast-road hold.** Confirming FAST takes about 5 s, but the beep needs only 2 readings.
+Without a hold, the app would beep:
+- every time you accelerate past an 80 sign when leaving a town,
+- on every motorway on-ramp,
+- when GPS returns on a motorway after a tunnel.
+
+So while in ARMED, a reading at or above T whose *own* match is FAST, but where the FAST
+context is not yet confirmed, holds the beep for that reading. The first TOWN or UNKNOWN
+reading at or above T ends the hold. With the debounce already satisfied, the main beep
+then sounds at once.
+
+The hold only delays entering OVER. Once OVER, only a confirmed FAST context silences the
+app, so a single stray FAST match cannot cut off a running warning.
 
 The road context keeps being tracked in every state. PAUSED, NO_GPS and STOPPED take
 precedence over FAST_ROAD. When a pause ends on a fast road, the state goes straight to
@@ -377,11 +403,18 @@ service types, companion device pairing, and the broadcast exceptions.
      - Disconnecting removes it after about 30 s.
      - The tile starts and stops the service.
    - **If it fails:** use the §5.1 fallback.
-   - Rebuilt properly in step 2, not kept.
+   - The spike code is thrown away. The car link is built properly in step 4.
+   - Steps 2 and 3 do not depend on the spike and can proceed while it waits for the
+     phone. Only the car link in step 4 waits for its result.
 2. **`:core`, written test-first:**
-   - `SpeedRules` scenario tests: crossing, debounce, hysteresis between T − R and T,
-     reminders, Quiet, Pause, Resume, FAST entry and exit including exiting onto a town
-     road at 70, NO_GPS, simple mode, NOT COVERED.
+   - `SpeedRules` scenario tests:
+     - crossing, debounce, hysteresis between T − R and T, reminders
+     - Quiet, Pause, Resume
+     - FAST entry and exit, including exiting onto a town road at 70
+     - the fast-road hold: accelerating past an 80 sign out of town, a motorway on-ramp,
+       GPS returning on a motorway after a tunnel
+     - poor-accuracy (NEUTRAL) readings in town still beep
+     - NO_GPS, simple mode, NOT COVERED
    - maxspeed parser and classifier tests.
    - Road-file round trip (write, then read).
    - `RoadMatcher` on synthetic layouts:
@@ -397,6 +430,7 @@ service types, companion device pairing, and the broadcast exceptions.
      `adb emu geo fix` can inject speed, and use it if so.
 5. **In-car tests by the user:**
    - Test beep on both outputs.
+   - Every notification action works from the lock screen without unlocking.
    - One real drive with "Record drives" on. The recording becomes a replay test case for
      tuning the 20 m, 30°, 5- and 2-reading values.
 6. **Release:** private repo `LRosa2/SpeedBeep`. Release APK signed with the shared key
