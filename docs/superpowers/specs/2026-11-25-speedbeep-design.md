@@ -262,9 +262,12 @@ unclassified, residential, living_street, road, and every `*_link`}.
 
 **Effective limit,** taken from the first source that gives one:
 1. `maxspeed`
-2. if both `maxspeed:forward` and `maxspeed:backward` are given, the **lower** of the two;
-   a value for one direction alone is ignored, because it says nothing about the other side
+2. if both `maxspeed:forward` and `maxspeed:backward` are given, the **lower** of the two
 3. `maxspeed:type`, `zone:maxspeed` or `source:maxspeed`
+
+A directional value only ever **lowers** the limit, never raises it (D10), because a road
+is stored once for both directions. A `maxspeed:forward` or `maxspeed:backward` lower than
+the result of steps 1–3 wins, and a lone directional value above 50 is ignored.
 
 **Value parsing:**
 

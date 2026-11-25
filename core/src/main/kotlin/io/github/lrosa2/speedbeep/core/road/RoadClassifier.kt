@@ -42,17 +42,26 @@ object RoadClassifier {
         return NAMED_LIMITS[value]
     }
 
-    /** Effective limit in km/h, or null when the tags give none. The order follows spec §6.2. */
+    /** Highest limit that still counts as a town road. */
+    private const val TOWN_MAX_KMH = 50
+
+    /**
+     * Effective limit in km/h, or null when the tags give none. The order follows spec §6.2.
+     * A directional value only ever lowers the limit, never raises it (D10): the road is
+     * stored once for both directions.
+     */
     fun effectiveLimit(tags: Map<String, String>): Int? {
-        parseMaxspeed(tags["maxspeed"])?.let { return it }
         val forward = parseMaxspeed(tags["maxspeed:forward"])
         val backward = parseMaxspeed(tags["maxspeed:backward"])
-        // Step 2 needs both directions: a value for one side says nothing about the other.
-        if (forward != null && backward != null) return minOf(forward, backward)
-        for (key in listOf("maxspeed:type", "zone:maxspeed", "source:maxspeed")) {
-            parseMaxspeed(tags[key])?.let { return it }
+        val lowestDirectional = listOfNotNull(forward, backward).minOrNull()
+        val base = parseMaxspeed(tags["maxspeed"])
+            ?: (if (forward != null && backward != null) minOf(forward, backward) else null)
+            ?: listOf("maxspeed:type", "zone:maxspeed", "source:maxspeed").firstNotNullOfOrNull { parseMaxspeed(tags[it]) }
+        return when {
+            lowestDirectional == null -> base
+            base == null -> lowestDirectional.takeIf { it <= TOWN_MAX_KMH }
+            else -> minOf(base, lowestDirectional)
         }
-        return null
     }
 
     fun isDrivable(tags: Map<String, String>): Boolean {
@@ -67,7 +76,7 @@ object RoadClassifier {
         if (!isDrivable(tags)) return null
         val limit = effectiveLimit(tags)
         return when {
-            limit != null && limit > 50 -> RoadClass.FAST
+            limit != null && limit > TOWN_MAX_KMH -> RoadClass.FAST
             limit == null && tags["highway"] in FAST_WITHOUT_LIMIT -> RoadClass.FAST
             else -> RoadClass.TOWN
         }

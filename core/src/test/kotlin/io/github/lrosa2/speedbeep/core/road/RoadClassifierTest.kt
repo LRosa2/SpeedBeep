@@ -84,13 +84,23 @@ class RoadClassifierTest {
     }
 
     @Test
-    fun `a limit for one direction only is not applied to the whole road`() {
-        // Spec §6.2 step 2 needs both directions; a lone value says nothing about the other side.
+    fun `a limit for one direction only never raises the limit of the whole road`() {
+        // A lone value says nothing about the other side, so above 50 it is ignored (D10).
         assertNull(RoadClassifier.effectiveLimit(tags("maxspeed:forward" to "80")))
         assertEquals(
             RoadClass.TOWN,
             RoadClassifier.classify(tags("highway" to "secondary", "maxspeed:forward" to "80", "source:maxspeed" to "CH:urban")),
         )
+    }
+
+    @Test
+    fun `a lower limit for one direction always counts`() {
+        assertEquals(RoadClass.TOWN, RoadClassifier.classify(tags("highway" to "trunk", "maxspeed:forward" to "50")))
+        assertEquals(
+            RoadClass.TOWN,
+            RoadClassifier.classify(tags("highway" to "secondary", "maxspeed:backward" to "30", "source:maxspeed" to "CH:rural")),
+        )
+        assertEquals(50, RoadClassifier.effectiveLimit(tags("maxspeed" to "80", "maxspeed:backward" to "50")))
     }
 
     @Test
