@@ -46,6 +46,8 @@ Success means:
 | D11 | Speed is the GPS-reported (Doppler) speed, not distance divided by time. | design |
 | D12 | Auto-start goes through CompanionDeviceManager. A plain ACL_CONNECTED receiver cannot start a location foreground service from the background on Android 12+. | Android docs, see §8 |
 | D13 | Fast-road hold: a reading at or above T that itself matches a fast road does not trigger the beep before FAST is confirmed. Speed validity and position accuracy are judged separately. | design review (keeps town exits, on-ramps and tunnel exits silent without weakening D10) |
+| D14 | Reserved for the Bluetooth auto-start spike result (plan 1, Task 1). | pending |
+| D15 | Main roads with no speed information stay TOWN (they beep), also outside built-up areas. Using land-use outlines as town limits was measured and rejected: it would also silence about a quarter of the road length really posted 50 or less. See §6.2. | user choice 2026-11-25, after measurement |
 
 ## 3. Components
 
@@ -239,14 +241,17 @@ gradlew :roadbuilder:run --args="build <path>\switzerland-latest.osm.pbf app/src
 
 - **Input:** the Geofabrik Switzerland extract, about 500 MB. Download it to
   `C:\work\tmp\speedbeep-osm\`. It is never committed.
-- **Two passes:**
-  1. Collect the drivable ways and their node IDs.
-  2. Read the coordinates of only those nodes.
+- **Three passes:**
+  1. Read the built-up land-use multipolygons (for the report only).
+  2. Collect the drivable ways, the built-up land-use ways, and their node IDs.
+  3. Read the coordinates of only those nodes.
 - **Output:** `roads-ch.bin`, which **is committed**. It is rebuilt about once a year.
 - **Report** printed at the end:
   - kilometres of road by class
   - kilometres of primary/secondary/tertiary/unclassified road with no speed information
     (the "known gap")
+  - the same main roads split into inside / within 30 m of / outside built-up areas, by
+    speed information (see §6.2; the road file does not depend on it)
   - file size
   - OSM data timestamp
 
@@ -287,6 +292,29 @@ the result of steps 1–3 wins, and a lone directional value above 50 is ignored
 - **FAST** if there is no limit and `highway` ∈ {motorway, motorway_link, trunk, trunk_link}.
 - **TOWN** in every other case, including a missing limit on other road types. That case
   is the known gap, and "Quiet this stretch" covers it.
+
+**The known gap, measured** (build of 2026-11-25, OSM data of the same day): 51.8 % of
+the primary, secondary, tertiary and unclassified road length has no speed information.
+The report splits that main-road length by position against built-up areas. These are
+the `landuse` = residential, commercial, industrial or retail outlines (28,455 of them;
+inner rings ignored), with a 30 m edge band because outlines often stop at the roadside,
+sampled every 50 m:
+
+| Main roads | Inside | Within 30 m | Outside | Share outside |
+|---|---|---|---|---|
+| No speed information | 2,271 km | 1,469 km | 17,928 km | 82.7 % |
+| Posted 50 or less | 4,775 km | 1,954 km | 2,326 km | 25.7 % |
+| Posted above 50 | 533 km | 1,200 km | 9,337 km | 84.3 % |
+
+- Of the 17,928 km without speed information outside built-up areas, 14,391 km are
+  `unclassified`, 2,942 km tertiary and 595 km primary or secondary.
+- A rule "no speed information and outside built-up areas → FAST" would silence that
+  length. But a quarter of the length really posted 50 or less also lies outside, so the
+  rule would most likely silence a similar share of real 50 roads, against D10.
+- Caveat: tagged roads are not a random sample, and the untagged ones are mostly
+  `unclassified`, a different mix. Where the posted-50 roads outside lie (village edges,
+  hamlets) was not measured.
+- Decision D15: the rule is not used. Those roads stay TOWN.
 
 ### 6.3 Format (version 1)
 
