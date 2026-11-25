@@ -48,6 +48,7 @@ Success means:
 | D13 | Fast-road hold: a reading at or above T that itself matches a fast road does not trigger the beep before FAST is confirmed. Speed validity and position accuracy are judged separately. | design review (keeps town exits, on-ramps and tunnel exits silent without weakening D10) |
 | D14 | Reserved for the Bluetooth auto-start spike result (plan 1, Task 1). | pending |
 | D15 | Main roads with no speed information stay TOWN (they beep), also outside built-up areas. Using land-use outlines as town limits was measured and rejected: it would also silence about a quarter of the road length really posted 50 or less. See §6.2. | user choice 2026-11-25, after measurement |
+| D16 | The §5.1 notification fallback is built in from the start, chosen in settings ("When the car connects: Start watching / Ask with a notification"); the default is the companion route. One car trip can then test both, and D14 decides the default. | owner's request 2026-11-25 to finish the app before the car test |
 
 ## 3. Components
 
@@ -193,12 +194,12 @@ the context back to NORMAL.
   - `BLUETOOTH_CONNECT`, needed only by the fallback receiver, because receiving
     `ACTION_ACL_CONNECTED` requires it on API 31+
   - `uses-feature android.software.companion_device_setup`
-- **Fallback, used only if the spike (§9) shows the companion route doesn't work on the
-  phone:**
+- **Fallback, built in and chosen in settings (D16). The default is the companion route:**
   - A manifest receiver for `ACTION_ACL_CONNECTED`, filtered to the linked car's address,
     posts a high-priority "Car connected · Start" notification.
   - Tapping it starts the service. Notification taps are exempt from the background-start
     rules.
+  - The car can also be picked from the paired devices, which needs "Nearby devices".
 
 ### 5.2 Manual
 
@@ -383,6 +384,7 @@ All values are little-endian.
 | Output | Phone speaker | Phone speaker / Car speakers |
 | Pause length N | 10 min | 1–60 min |
 | Linked car | none | Link / Unlink |
+| When the car connects | Start watching | Start watching / Ask with a notification |
 | Keep screen on while app is open | on | on/off |
 | Record drives (debug) | off | on/off |
 
