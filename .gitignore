@@ -1,0 +1,21 @@
+# Gradle / build output
+.gradle/
+.kotlin/
+build/
+/captures
+
+# Local machine config
+/local.properties
+
+# Android Studio / IntelliJ
+*.iml
+/.idea/
+.DS_Store
+
+# Signing material: never commit
+keystore.properties
+*.jks
+*.keystore
+
+# OSM extracts belong in C:\work\tmp\speedbeep-osm, never in the repo
+*.osm.pbf
