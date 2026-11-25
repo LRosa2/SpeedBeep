@@ -161,6 +161,7 @@ class WatchService : Service() {
             return
         }
         events.log("watching started ($reason) with ${src.name}")
+        StartStopTile.refresh(this)
         handle(s.onTick(now()))
         handler.postDelayed(tick, TICK_MS)
     }
@@ -238,6 +239,7 @@ class WatchService : Service() {
         lastLine = null
         lastButtons = null
         WatchBus.publish(null)
+        StartStopTile.refresh(this)
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
