@@ -587,7 +587,8 @@ class SpikeActivity : Activity() {
         super.onCreate(savedInstanceState)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(32, 64, 32, 32)
+            // targetSdk 36 draws edge-to-edge; keep the status text out from under the system bars.
+            fitsSystemWindows = true
         }
         fun button(label: String, action: () -> Unit) {
             root.addView(Button(this).apply {
@@ -721,8 +722,14 @@ If the compiler reports a signature mismatch on an Android call, check it with
 `javap -cp C:/Android/sdk/platforms/android-36/android.jar <class>` and fix the call. Don't
 guess.
 
-Smoke test on the emulator (AVD `Pixel_7_API_34`, see the device-testing memory). Start it
-headless, then:
+Smoke test on the emulator. The SDK is at `C:\Android\sdk` and the only AVD is
+`Pixel_7_API_34`. Start the emulator in the background (`run_in_background`):
+
+```bash
+/c/Android/sdk/emulator/emulator.exe -avd Pixel_7_API_34 -no-window -no-audio -no-boot-anim -no-snapshot-save
+```
+
+Wait until `adb shell getprop sys.boot_completed` prints `1`. The first boot is slow. Then:
 
 ```bash
 adb install -r /c/work/tmp/speedbeep-spike/app/build/outputs/apk/debug/app-debug.apk
@@ -730,14 +737,15 @@ adb shell pm grant io.github.lrosa2.speedbeep.spike android.permission.ACCESS_FI
 adb shell pm grant io.github.lrosa2.speedbeep.spike android.permission.POST_NOTIFICATIONS
 adb shell am start -n io.github.lrosa2.speedbeep.spike/.SpikeActivity
 adb emu geo fix 8.5417 47.3769
-adb exec-out uiautomator dump /dev/tty | grep -o 'Start watching (manual)[^"]*' | head -1
+adb exec-out uiautomator dump /dev/tty | tr '>' '\n' | grep 'Start watching (manual)' | grep -o 'bounds="[^"]*"'
 ```
-Tap "Start watching (manual)" using the bounds from the dump (`adb shell input tap X Y`).
+The last command prints `bounds="[x1,y1][x2,y2]"`. Tap its centre with
+`adb shell input tap <(x1+x2)/2> <(y1+y2)/2>`.
 Then confirm that `adb shell dumpsys notification --noredact | grep -i "SpeedBeep spike"`
 shows the notification. The car and tile routes cannot be tested on the emulator. Stop the
 emulator afterwards with `adb emu kill`.
 
-- [ ] **Step 8: Hand the APK to the owner with the test protocol**
+- [ ] **Step 8: Hand the APK to the owner with the test protocol** *(main session only: needs the owner)*
 
 Send `C:\work\tmp\speedbeep-spike\app\build\outputs\apk\debug\app-debug.apk` with
 SendUserFile, and include this protocol in the message:
@@ -768,7 +776,7 @@ SendUserFile, and include this protocol in the message:
 Optional pre-check before going to the car: any paired Bluetooth headset in place of the
 car for steps 3 and 6. **Only the car result decides.**
 
-- [ ] **Step 9: Record the result (when the owner reports back)**
+- [ ] **Step 9: Record the result when the owner reports back** *(main session only: needs the owner)*
 
 From the shared log, decide which case applies and write it into the spec as a new
 decisions-log row (`D14`):
@@ -1384,8 +1392,8 @@ class RoadFileTest {
     @Test
     fun `header round-trips`() {
         val file = parse(bytesOf(town, motorway))
-        assertEquals(1_764_000_000, file.dataTimestampSec)
-        assertEquals(1_764_100_000, file.buildTimestampSec)
+        assertEquals(1_764_000_000L, file.dataTimestampSec)
+        assertEquals(1_764_100_000L, file.buildTimestampSec)
         assertEquals(47_360_000, file.grid.originLatE6)
         assertEquals(8_530_000, file.grid.originLonE6)
         assertEquals(3, file.grid.width)
@@ -2687,7 +2695,7 @@ git -C E:/AndroidProj/SpeedBeep commit -m "Add roadbuilder: OSM extract to road 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
-- [ ] **Step 8: Ask the owner before downloading the extract**
+- [ ] **Step 8: Ask the owner before downloading the extract** *(main session only: needs the owner)*
 
 Ask in chat and **wait for a yes**:
 
@@ -2755,7 +2763,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 Replace the `<…>` parts with the real report and spot-check lines before running.
 
-- [ ] **Step 12: Checkpoint: report the known gap to the owner**
+- [ ] **Step 12: Checkpoint: report the known gap to the owner** *(main session only: needs the owner)*
 
 Send the owner the report, and say what it means for them:
 

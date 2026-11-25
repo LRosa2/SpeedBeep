@@ -1,6 +1,7 @@
 # SpeedBeep — design
 
-Date: 2026-11-25 · Status: approved in chat, awaiting spec review
+Date: 2026-11-25 · Status: approved 2026-11-25. Plan 1 is
+`docs/superpowers/plans/2026-11-25-speedbeep-plan1-core.md`.
 
 ## 1. Purpose
 
@@ -232,7 +233,7 @@ the context back to NORMAL.
 ### 6.1 Build (PC)
 
 ```
-gradlew :roadbuilder:run --args="<path>\switzerland-latest.osm.pbf app/src/main/assets/roads-ch.bin"
+gradlew :roadbuilder:run --args="build <path>\switzerland-latest.osm.pbf app/src/main/assets/roads-ch.bin"
 ```
 
 - **Input:** the Geofabrik Switzerland extract, about 500 MB. Download it to
@@ -402,7 +403,8 @@ service types, companion device pairing, and the broadcast exceptions.
    - **Pass:**
      - With the app swiped away and the phone locked, connecting the car (or any paired
        Bluetooth headset as a stand-in) shows the notification within 10 s.
-     - Disconnecting removes it after about 30 s.
+     - Disconnecting removes it. The spike stops at once; the app's 30 s grace period
+       comes in Plan 2.
      - The tile starts and stops the service.
    - **If it fails:** use the §5.1 fallback.
    - The spike code is thrown away. The car link is built properly in step 4.
