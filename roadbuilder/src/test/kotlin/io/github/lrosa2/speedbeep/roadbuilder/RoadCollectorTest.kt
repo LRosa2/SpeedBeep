@@ -67,4 +67,32 @@ class RoadCollectorTest {
         assertEquals(1.002, stats.fastKm, 0.01)
         assertEquals(2.004, stats.townKm, 0.01)
     }
+
+    @Test
+    fun `main road length is split by position relative to built-up areas`() {
+        val collector = RoadCollector()
+        collector.acceptWay(1, mapOf("highway" to "primary"), listOf(1L, 2L))
+        collector.acceptWay(2, mapOf("highway" to "secondary", "maxspeed" to "50"), listOf(3L, 4L))
+        collector.acceptWay(3, mapOf("highway" to "residential"), listOf(5L, 6L))
+        collector.finishWays()
+        // Each runs north from 47.000 to 47.009 (about 1 km), 0.1° apart.
+        listOf(1L to 8.005, 3L to 8.105, 5L to 8.205).forEach { (id, lon) ->
+            collector.acceptNode(id, 47.0, lon)
+            collector.acceptNode(id + 1, 47.009, lon)
+        }
+        // One area covers the southern half of road 1 only.
+        val area = Ring(
+            intArrayOf(46_990_000, 46_990_000, 47_004_500, 47_004_500, 46_990_000),
+            intArrayOf(7_990_000, 8_020_000, 8_020_000, 7_990_000, 7_990_000),
+        )
+        val stats = collector.result(BuiltUpAreas(listOf(area), bufferM = 30.0)).stats
+
+        val gap = stats.position(RoadStats.Group.NO_LIMIT)
+        assertEquals(0.50, gap.inside, 0.05)
+        assertEquals(0.0, gap.near, 0.05)
+        assertEquals(0.50, gap.outside, 0.05)
+        assertEquals(1.002, stats.position(RoadStats.Group.LIMIT_50_OR_LESS).outside, 0.01)
+        assertEquals(0.0, stats.position(RoadStats.Group.LIMIT_ABOVE_50).total, 1e-9) // residential is not a main road
+        assertEquals(1, stats.builtUpAreas)
+    }
 }

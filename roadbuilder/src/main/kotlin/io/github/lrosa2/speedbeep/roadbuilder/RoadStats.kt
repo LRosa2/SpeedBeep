@@ -4,8 +4,39 @@ import io.github.lrosa2.speedbeep.core.road.RoadClass
 import java.time.Instant
 import java.util.Locale
 
+/** Road length in km by position relative to built-up areas. */
+data class PositionKm(val inside: Double, val near: Double, val outside: Double) {
+    val total: Double get() = inside + near + outside
+
+    operator fun plus(o: PositionKm) = PositionKm(inside + o.inside, near + o.near, outside + o.outside)
+
+    companion object {
+        val ZERO = PositionKm(0.0, 0.0, 0.0)
+    }
+}
+
 /** Totals for the build report (spec §6.1). */
 class RoadStats {
+    /** Main roads grouped by what their tags say, for the built-up split and its calibration. */
+    enum class Group(val label: String) {
+        NO_LIMIT("no speed information"),
+        LIMIT_50_OR_LESS("tagged 50 or less"),
+        LIMIT_ABOVE_50("tagged above 50"),
+    }
+
+    /** Number of built-up outlines used, or null when the split was not measured. */
+    var builtUpAreas: Int? = null
+    var unclosedRings = 0
+    private val positions = HashMap<Group, PositionKm>()
+    private val noLimitOutsideByType = HashMap<String, Double>()
+
+    fun addPosition(highway: String, group: Group, km: PositionKm) {
+        positions[group] = position(group) + km
+        if (group == Group.NO_LIMIT) noLimitOutsideByType[highway] = (noLimitOutsideByType[highway] ?: 0.0) + km.outside
+    }
+
+    fun position(group: Group): PositionKm = positions[group] ?: PositionKm.ZERO
+
     var ways = 0
         private set
     var droppedWays = 0
@@ -40,10 +71,32 @@ class RoadStats {
             )
             appendLine("  Upper bound: it includes roads inside towns, where 50 is right anyway.")
             appendLine("File: %.1f MB, OSM data from %s".format(Locale.ROOT, fileBytes / 1_000_000.0, dataDate))
+            builtUpAreas?.let { appendBuiltUp(it) }
         }
     }
 
+    private fun StringBuilder.appendBuiltUp(areas: Int) {
+        appendLine(
+            "Built-up areas: %,d from landuse=%s (%,d unclosed rings dropped)"
+                .format(Locale.ROOT, areas, BuiltUpCollector.BUILT_UP_LANDUSE.sorted().joinToString("/"), unclosedRings),
+        )
+        val row = "  %-22s%10s%14s%10s%11s"
+        appendLine(row.format(Locale.ROOT, "Main road km", "inside", "within %.0f m".format(Locale.ROOT, BuiltUpCollector.BUFFER_M), "outside", "outside %"))
+        for (group in Group.entries) {
+            val p = position(group)
+            val pct = if (p.total == 0.0) 0.0 else p.outside / p.total * 100
+            appendLine(row.format(Locale.ROOT, group.label, km(p.inside), km(p.near), km(p.outside), "%.1f %%".format(Locale.ROOT, pct)))
+        }
+        val byType = GAP_TYPE_ORDER.filter { (noLimitOutsideByType[it] ?: 0.0) > 0.0 }
+            .joinToString(", ") { "$it ${km(noLimitOutsideByType.getValue(it))} km" }
+        appendLine("  No speed information outside built-up areas, by type: $byType")
+        appendLine("  Tagged roads show how well land use marks town limits: tagged 50 outside = would wrongly turn silent.")
+    }
+
+    private fun km(value: Double) = "%,.0f".format(Locale.ROOT, value)
+
     companion object {
         val GAP_TYPES = setOf("primary", "secondary", "tertiary", "unclassified")
+        private val GAP_TYPE_ORDER = listOf("primary", "secondary", "tertiary", "unclassified")
     }
 }

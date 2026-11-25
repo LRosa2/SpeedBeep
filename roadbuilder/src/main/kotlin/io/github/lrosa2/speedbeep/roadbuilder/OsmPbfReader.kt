@@ -1,12 +1,24 @@
 package io.github.lrosa2.speedbeep.roadbuilder
 
 import com.wolt.osm.parallelpbf.ParallelBinaryParser
+import com.wolt.osm.parallelpbf.entity.RelationMember
 import java.io.File
 
 /** Thin adapter over parallelpbf. Callbacks run on the parser's worker threads. */
 object OsmPbfReader {
     // Each parser thread can hold a few hundred MB of blob data; 4 threads fit in -Xmx4g.
     private val threads = minOf(4, Runtime.getRuntime().availableProcessors())
+
+    /** Relations with their way members only, as (way id, role). */
+    fun readRelations(pbf: File, onRelation: (id: Long, tags: Map<String, String>, wayMembers: List<Pair<Long, String>>) -> Unit) =
+        parse(pbf) { parser ->
+            parser.onRelation { relation ->
+                val ways = relation.members
+                    .filter { it.type == RelationMember.Type.WAY }
+                    .map { it.id to (it.role ?: "") }
+                onRelation(relation.id, relation.tags, ways)
+            }
+        }
 
     fun readWays(pbf: File, onWay: (id: Long, tags: Map<String, String>, nodeIds: List<Long>) -> Unit) =
         parse(pbf) { parser -> parser.onWay { way -> onWay(way.id, way.tags, way.nodes) } }

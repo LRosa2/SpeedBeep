@@ -29,12 +29,24 @@ fun main(args: Array<String>) {
 private fun build(pbf: File, out: File) {
     require(pbf.isFile) { "no such file: $pbf" }
     val collector = RoadCollector()
-    println("Pass 1/2: ways")
-    OsmPbfReader.readWays(pbf, collector::acceptWay)
+    // Built-up outlines only feed the report's inside/outside split; the roads do not depend on them.
+    val builtUp = BuiltUpCollector()
+    println("Pass 1/3: relations")
+    OsmPbfReader.readRelations(pbf, builtUp::acceptRelation)
+    builtUp.finishRelations()
+    println("Pass 2/3: ways")
+    OsmPbfReader.readWays(pbf) { id, tags, nodeIds ->
+        collector.acceptWay(id, tags, nodeIds)
+        builtUp.acceptWay(id, tags, nodeIds)
+    }
     collector.finishWays()
-    println("Pass 2/2: nodes")
-    OsmPbfReader.readNodes(pbf, collector::acceptNode)
-    val (roads, stats) = collector.result()
+    builtUp.finishWays()
+    println("Pass 3/3: nodes")
+    OsmPbfReader.readNodes(pbf) { id, lat, lon ->
+        collector.acceptNode(id, lat, lon)
+        builtUp.acceptNode(id, lat, lon)
+    }
+    val (roads, stats) = collector.result(builtUp.result())
     // curl -R keeps Geofabrik's Last-Modified, so the file date is the OSM data date.
     val dataTimestampSec = pbf.lastModified() / 1000
     out.absoluteFile.parentFile.mkdirs()

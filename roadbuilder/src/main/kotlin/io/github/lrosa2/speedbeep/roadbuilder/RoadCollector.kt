@@ -4,6 +4,9 @@ import io.github.lrosa2.speedbeep.core.road.Geo
 import io.github.lrosa2.speedbeep.core.road.Polyline
 import io.github.lrosa2.speedbeep.core.road.RoadClass
 import io.github.lrosa2.speedbeep.core.road.RoadClassifier
+import kotlin.math.ceil
+
+private const val SAMPLE_M = 50.0
 
 /**
  * Two-pass collection of drivable ways:
@@ -58,9 +61,14 @@ class RoadCollector {
         found[slot] = true
     }
 
-    fun result(): CollectResult {
+    /** With [builtUp], main-road length is also split by position for the report (roads are unchanged). */
+    fun result(builtUp: BuiltUpAreas? = null): CollectResult {
         val roads = ArrayList<Polyline>(ways.size)
         val stats = RoadStats()
+        if (builtUp != null) {
+            stats.builtUpAreas = builtUp.ringCount
+            stats.unclosedRings = builtUp.unclosedRings
+        }
         for (way in ways) {
             val slots = IntArray(way.nodeIds.size) { neededIds.binarySearch(way.nodeIds[it]) }
             if (slots.any { it < 0 || !found[it] }) {
@@ -70,8 +78,41 @@ class RoadCollector {
             val road = Polyline(way.roadClass, IntArray(slots.size) { latE6[slots[it]] }, IntArray(slots.size) { lonE6[slots[it]] })
             roads += road
             stats.add(way.roadClass, way.highway, way.hasLimit, lengthKm(road))
+            if (builtUp != null && way.highway in RoadStats.GAP_TYPES) {
+                val group = when {
+                    !way.hasLimit -> RoadStats.Group.NO_LIMIT
+                    way.roadClass == RoadClass.TOWN -> RoadStats.Group.LIMIT_50_OR_LESS
+                    else -> RoadStats.Group.LIMIT_ABOVE_50
+                }
+                stats.addPosition(way.highway, group, positionKm(road, builtUp))
+            }
         }
         return CollectResult(roads, stats)
+    }
+
+    /** Samples every segment about every [SAMPLE_M] metres, since rural segments can cross a village edge. */
+    private fun positionKm(p: Polyline, areas: BuiltUpAreas): PositionKm {
+        var inside = 0.0
+        var near = 0.0
+        var outside = 0.0
+        for (i in 0 until p.size - 1) {
+            val aLat = p.latE6[i] / 1e6
+            val aLon = p.lonE6[i] / 1e6
+            val bLat = p.latE6[i + 1] / 1e6
+            val bLon = p.lonE6[i + 1] / 1e6
+            val metres = Geo.distanceM(aLat, aLon, bLat, bLon)
+            val pieces = maxOf(1, ceil(metres / SAMPLE_M).toInt())
+            val pieceM = metres / pieces
+            for (k in 0 until pieces) {
+                val t = (k + 0.5) / pieces
+                when (areas.locate(aLat + (bLat - aLat) * t, aLon + (bLon - aLon) * t)) {
+                    Placement.INSIDE -> inside += pieceM
+                    Placement.NEAR -> near += pieceM
+                    Placement.OUTSIDE -> outside += pieceM
+                }
+            }
+        }
+        return PositionKm(inside / 1000, near / 1000, outside / 1000)
     }
 
     private fun lengthKm(p: Polyline): Double {
