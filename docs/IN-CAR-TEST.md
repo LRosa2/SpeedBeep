@@ -38,8 +38,7 @@ If time is short, skip Part A: SpeedBeep's own event log records the same things
    - the notification shows speed and state;
    - **Pause 10 min** shows "Paused until …";
    - **Resume** works;
-   - **Stop**: watching ends, and a small "SpeedBeep stopped · Start" note stays;
-   - **Start** on that note starts watching again.
+   - **Stop**: watching ends.
 
 ## Part C: auto-start and the drive
 
@@ -53,12 +52,15 @@ If time is short, skip Part A: SpeedBeep's own event log records the same things
    - SpeedBeep also shows "Car connected · Start" by itself when Android refuses the
      automatic start. If that happens in step 2, note it: it answers the same question.
    - Note which of the two worked.
-3. **Drive.**
+3. **Stop while the car is connected.** Once watching has started by itself, tap **Stop**
+   on the lock screen. A small "SpeedBeep stopped · Start" note should stay. Tap **Start**
+   on it: watching starts again.
+4. **Drive.**
    - **In town:** go a little above 53. A beep within about 2 s, then a short reminder
      every 10 s while over. Once use **Quiet this stretch**.
    - **On the motorway or an 80 road:** silent after about 5 s at speed.
    - **Back in town:** beeps again above 53.
-4. Park and turn the car off. After about 30 s the notification should go away.
+5. Park and turn the car off. After about 30 s the notification should go away.
 
 ## Send back
 
