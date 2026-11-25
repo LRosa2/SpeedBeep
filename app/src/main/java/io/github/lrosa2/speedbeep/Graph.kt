@@ -1,6 +1,7 @@
 package io.github.lrosa2.speedbeep
 
 import android.app.Application
+import android.content.Context
 import io.github.lrosa2.speedbeep.engine.EventLog
 import io.github.lrosa2.speedbeep.engine.LoadedRoads
 import io.github.lrosa2.speedbeep.engine.RoadStore
@@ -32,6 +33,9 @@ object Graph {
         events = EventLog(File(app.filesDir, "events.log"))
         io.launch { roads.value = loadRoads(app) }
     }
+
+    /** Recorded drives; shared through the FileProvider in Task 7. */
+    fun drivesDir(context: Context): File = File(context.getExternalFilesDir(null) ?: context.filesDir, "drives")
 
     private fun loadRoads(app: Application): LoadedRoads {
         val info = app.packageManager.getPackageInfo(app.packageName, 0)
