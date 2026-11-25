@@ -22,4 +22,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "SpeedBeep"
 
-include(":core")
+include(":core", ":roadbuilder")
