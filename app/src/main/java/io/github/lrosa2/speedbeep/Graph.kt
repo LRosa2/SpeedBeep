@@ -4,6 +4,7 @@ import android.app.Application
 import io.github.lrosa2.speedbeep.engine.EventLog
 import io.github.lrosa2.speedbeep.engine.LoadedRoads
 import io.github.lrosa2.speedbeep.engine.RoadStore
+import io.github.lrosa2.speedbeep.settings.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -18,12 +19,16 @@ object Graph {
     lateinit var events: EventLog
         private set
 
+    lateinit var settings: SettingsRepository
+        private set
+
     /** Null until the road file is loaded (a few seconds on the first start of a new version). */
     val roads = MutableStateFlow<LoadedRoads?>(null)
 
     private val io = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     fun init(app: Application) {
+        settings = SettingsRepository(app)
         events = EventLog(File(app.filesDir, "events.log"))
         io.launch { roads.value = loadRoads(app) }
     }
