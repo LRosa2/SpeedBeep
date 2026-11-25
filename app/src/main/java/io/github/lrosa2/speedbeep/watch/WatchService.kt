@@ -11,6 +11,7 @@ import android.os.Looper
 import android.os.SystemClock
 import androidx.core.app.ServiceCompat
 import io.github.lrosa2.speedbeep.Graph
+import io.github.lrosa2.speedbeep.car.CarController
 import io.github.lrosa2.speedbeep.core.road.NoRoadData
 import io.github.lrosa2.speedbeep.core.rules.Fix
 import io.github.lrosa2.speedbeep.core.rules.Phase
@@ -162,6 +163,7 @@ class WatchService : Service() {
         }
         events.log("watching started ($reason) with ${src.name}")
         StartStopTile.refresh(this)
+        CarController.watchStarted()
         handle(s.onTick(now()))
         handler.postDelayed(tick, TICK_MS)
     }
@@ -240,6 +242,7 @@ class WatchService : Service() {
         lastButtons = null
         WatchBus.publish(null)
         StartStopTile.refresh(this)
+        if (byUser) CarController.ownerStopped()
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
