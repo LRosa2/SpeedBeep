@@ -4,8 +4,9 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.activity.enableEdgeToEdge
+import io.github.lrosa2.speedbeep.Graph
+import io.github.lrosa2.speedbeep.watch.Beeper
 import io.github.lrosa2.speedbeep.watch.WatchStarter
 
 class MainActivity : ComponentActivity() {
@@ -14,15 +15,25 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_START = "io.github.lrosa2.speedbeep.extra.START"
     }
 
+    /** For "Test beep"; the service has its own. */
+    private lateinit var beeper: Beeper
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        beeper = Beeper(this, Graph.events)
         handleStart(intent)
-        setContent { MaterialTheme { Text("SpeedBeep") } }
+        setContent { SpeedBeepTheme { AppScreens(beeper) } }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleStart(intent)
+    }
+
+    override fun onDestroy() {
+        beeper.stop()
+        super.onDestroy()
     }
 
     private fun handleStart(intent: Intent?) {
