@@ -1,0 +1,5 @@
+# Shell scripts must keep LF even with core.autocrlf=true; the road file is binary.
+gradlew text eol=lf
+*.bat text eol=crlf
+*.bin binary
+*.jar binary
