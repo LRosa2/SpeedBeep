@@ -66,6 +66,17 @@ class SpeedRulesRoadTest {
     }
 
     @Test
+    fun `a weak position just before the tunnel does not make the exit beep`() {
+        val d = TestDrive()
+        d.readings(5, 110.0, FAST)
+        d.at(110.0, NEUTRAL)                       // t = 6 s, weak position at the portal
+        d.readings(60, null)                       // a minute in the tunnel
+        val exit = List(3) { d.at(110.0, NEUTRAL) } // weak positions right after the exit
+        allSilent(exit.map { it.sound })
+        assertEquals(Phase.FAST_ROAD, exit.last().phase)
+    }
+
+    @Test
     fun `leaving the motorway onto a town road at 70 beeps on the second town reading`() {
         val d = TestDrive()
         d.readings(5, 100.0, FAST)

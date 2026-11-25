@@ -60,6 +60,9 @@ class SpeedRules(config: RulesConfig, startMs: Long) {
     private var lastSpeed: Double? = null
     private var pausedUntilMs: Long? = null
 
+    /** QUIET was active when GPS was lost, so the same stretch stays quiet when it returns. */
+    private var quietBeforeNoGps = false
+
     /** Takes effect from the next reading. */
     fun updateConfig(newConfig: RulesConfig) {
         config = newConfig
@@ -68,6 +71,8 @@ class SpeedRules(config: RulesConfig, startMs: Long) {
     fun onReading(reading: Reading): RulesOutput {
         val speed = reading.speedKmh ?: return onTick(reading.timeMs)
         val now = reading.timeMs
+        // A GPS gap ends any weak-position streak: the 10 s timeout must not count the tunnel.
+        if (now - lastUsableMs >= NO_GPS_AFTER_MS) neutralSinceMs = null
         lastUsableMs = now
         lastSpeed = speed
         updateRoadContext(reading)
@@ -76,7 +81,10 @@ class SpeedRules(config: RulesConfig, startMs: Long) {
             if (now < pausedUntilMs!!) return output(Sound.NONE)
             endPause()
         }
-        if (phase == Phase.NO_GPS) phase = Phase.ARMED
+        if (phase == Phase.NO_GPS) {
+            val stillFast = speed > config.thresholdKmh - REARM_MARGIN_KMH
+            phase = if (quietBeforeNoGps && stillFast) Phase.QUIET else Phase.ARMED
+        }
 
         val threshold = config.thresholdKmh
         val above = speed >= threshold
@@ -129,6 +137,7 @@ class SpeedRules(config: RulesConfig, startMs: Long) {
         }
         if (phase != Phase.NO_GPS && nowMs - lastUsableMs >= NO_GPS_AFTER_MS) {
             val sound = if (phase == Phase.OVER) Sound.STOP else Sound.NONE
+            quietBeforeNoGps = phase == Phase.QUIET
             phase = Phase.NO_GPS
             overRun = 0
             wasAbove = false

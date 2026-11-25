@@ -110,6 +110,18 @@ class RoadMatcherTest {
     }
 
     @Test
+    fun `a damaged cell gives NOT_COVERED instead of throwing`() {
+        val out = ByteArrayOutputStream()
+        RoadFileWriter.write(listOf(townEastWest), 0, 0, out)
+        val bytes = out.toByteArray()
+        val cells = RoadFile.parse(ByteBuffer.wrap(bytes)).cellCount
+        // The first payload belongs to the west cell; claim 127 polylines in a few bytes.
+        bytes[RoadFileFormat.HEADER_SIZE + cells * RoadFileFormat.INDEX_ENTRY_SIZE] = 0x7F
+        val matcher = RoadMatcher(RoadFile.parse(ByteBuffer.wrap(bytes)))
+        assertEquals(RoadMatch.NOT_COVERED, matcher.at(0.0, -200.0, 90.0))
+    }
+
+    @Test
     fun `without a road file everything is NOT_COVERED`() {
         assertEquals(RoadMatch.NOT_COVERED, NoRoadData.classify(lat0, lon0, 90.0, 60.0))
     }

@@ -1934,6 +1934,7 @@ way, and answers FAST, TOWN, UNKNOWN or NOT_COVERED.
 - Produces:
   - `enum class RoadMatch { FAST, TOWN, UNKNOWN, NOT_COVERED, NEUTRAL }`
   - `fun interface RoadLookup { fun classify(lat: Double, lon: Double, bearingDeg: Double?, speedKmh: Double): RoadMatch }`
+    - `classify` never throws: a damaged cell payload gives `NOT_COVERED` (final-review fix; Plan 2 only needs to catch `RoadFile.parse`)
   - `object NoRoadData : RoadLookup` (always NOT_COVERED)
   - `class RoadMatcher(file: RoadFile) : RoadLookup`, with constants `MAX_DISTANCE_M = 20.0`,
     `MAX_ANGLE_DEG = 30.0`, `HEADING_MIN_KMH = 15.0`, `SEARCH_RADIUS_M = 30.0`

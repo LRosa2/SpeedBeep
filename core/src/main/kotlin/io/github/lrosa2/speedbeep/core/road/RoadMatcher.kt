@@ -16,7 +16,10 @@ enum class RoadMatch {
 }
 
 fun interface RoadLookup {
-    /** [bearingDeg] is null when unknown. The heading is only compared at [speedKmh] ≥ 15. */
+    /**
+     * [bearingDeg] is null when unknown. The heading is only compared at [speedKmh] ≥ 15.
+     * Never throws: unusable road data for this place gives [RoadMatch.NOT_COVERED].
+     */
     fun classify(lat: Double, lon: Double, bearingDeg: Double?, speedKmh: Double): RoadMatch
 }
 
@@ -35,7 +38,15 @@ class RoadMatcher(private val file: RoadFile) : RoadLookup {
         const val SEARCH_RADIUS_M = 30.0
     }
 
-    override fun classify(lat: Double, lon: Double, bearingDeg: Double?, speedKmh: Double): RoadMatch {
+    /** Cell payloads are only checked when first decoded, so a damaged cell is found here, mid-drive. */
+    override fun classify(lat: Double, lon: Double, bearingDeg: Double?, speedKmh: Double): RoadMatch =
+        try {
+            match(lat, lon, bearingDeg, speedKmh)
+        } catch (e: RoadFileFormatException) {
+            RoadMatch.NOT_COVERED // beep as in simple mode, and the notification says so
+        }
+
+    private fun match(lat: Double, lon: Double, bearingDeg: Double?, speedKmh: Double): RoadMatch {
         val cells = file.cellsAround(lat, lon, SEARCH_RADIUS_M)
         if (cells.isEmpty()) return RoadMatch.NOT_COVERED
         val heading = if (bearingDeg != null && speedKmh >= HEADING_MIN_KMH) bearingDeg else null

@@ -45,9 +45,10 @@ object RoadClassifier {
     /** Effective limit in km/h, or null when the tags give none. The order follows spec §6.2. */
     fun effectiveLimit(tags: Map<String, String>): Int? {
         parseMaxspeed(tags["maxspeed"])?.let { return it }
-        listOfNotNull(parseMaxspeed(tags["maxspeed:forward"]), parseMaxspeed(tags["maxspeed:backward"]))
-            .minOrNull()
-            ?.let { return it }
+        val forward = parseMaxspeed(tags["maxspeed:forward"])
+        val backward = parseMaxspeed(tags["maxspeed:backward"])
+        // Step 2 needs both directions: a value for one side says nothing about the other.
+        if (forward != null && backward != null) return minOf(forward, backward)
         for (key in listOf("maxspeed:type", "zone:maxspeed", "source:maxspeed")) {
             parseMaxspeed(tags[key])?.let { return it }
         }

@@ -77,10 +77,19 @@ class RoadClassifierTest {
     @Test
     fun `the lower of the forward and backward limits wins`() {
         assertEquals(50, RoadClassifier.effectiveLimit(tags("maxspeed:forward" to "80", "maxspeed:backward" to "50")))
-        assertEquals(80, RoadClassifier.effectiveLimit(tags("maxspeed:forward" to "80")))
         assertEquals(
             RoadClass.TOWN,
             RoadClassifier.classify(tags("highway" to "primary", "maxspeed:forward" to "80", "maxspeed:backward" to "50")),
+        )
+    }
+
+    @Test
+    fun `a limit for one direction only is not applied to the whole road`() {
+        // Spec §6.2 step 2 needs both directions; a lone value says nothing about the other side.
+        assertNull(RoadClassifier.effectiveLimit(tags("maxspeed:forward" to "80")))
+        assertEquals(
+            RoadClass.TOWN,
+            RoadClassifier.classify(tags("highway" to "secondary", "maxspeed:forward" to "80", "source:maxspeed" to "CH:urban")),
         )
     }
 

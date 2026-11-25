@@ -24,6 +24,19 @@ class SpeedRulesActionsTest {
     }
 
     @Test
+    fun `quiet survives a tunnel on the same stretch`() {
+        val d = TestDrive()
+        d.at(70.0)
+        d.at(70.0)                                     // main beep at 2 s
+        d.quiet()
+        d.readings(6, null)                            // NO_GPS from 7 s
+        val after = List(3) { d.at(70.0) }
+        assertTrue(after.all { it.sound == Sound.NONE }, after.toString())
+        assertEquals(Phase.QUIET, after.last().phase)
+        assertEquals(Phase.ARMED, d.at(50.0).phase)    // back at T − R re-arms as usual
+    }
+
+    @Test
     fun `quiet does nothing unless over`() {
         val d = TestDrive()
         d.at(40.0)

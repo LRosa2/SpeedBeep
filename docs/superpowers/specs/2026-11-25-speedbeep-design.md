@@ -109,7 +109,8 @@ The road context used by the rules has hysteresis:
 - It switches back to **NORMAL** after **2 consecutive** TOWN or UNKNOWN readings.
 - TOWN and UNKNOWN both count as NORMAL, so the app beeps.
 - NEUTRAL readings neither count toward a switch nor break a run. After **10 s** of only
-  NEUTRAL readings, the context becomes NORMAL.
+  NEUTRAL readings, the context becomes NORMAL. A GPS gap of 5 s or more ends a NEUTRAL
+  streak, so the 10 s never count time spent in a tunnel.
 - NOT COVERED makes the app behave as in **simple mode** (§4.4), and the notification
   says so.
 - **At service start** the context is NORMAL. During NO_GPS the last context is kept,
@@ -127,7 +128,7 @@ Values (T and R are described in §7):
 |---|---|---|
 | **ARMED** | start; speed ≤ T − R from OVER or QUIET; road context leaves FAST; a pause ends | none |
 | **OVER** | in ARMED with road context NORMAL, speed ≥ T on 2 consecutive readings, **and the latest reading's own match is not FAST** (the fast-road hold, see below) | main beep (settable length) on entry, then a reminder beep (one short tone) every N s **while speed ≥ T**. Between T − R and T no reminders sound, but the state stays OVER, so going back above T only resumes reminders and does not repeat the main beep. |
-| **QUIET** | "Quiet this stretch" pressed while OVER | none; returns to ARMED when speed ≤ T − R |
+| **QUIET** | "Quiet this stretch" pressed while OVER | none; returns to ARMED when speed ≤ T − R. Survives NO_GPS: when GPS returns above T − R, the state goes back to QUIET |
 | **PAUSED(until)** | "Pause N min" | none; GPS stays on and speed is shown; returns to ARMED at `until` or on Resume |
 | **FAST_ROAD** | road context switches to FAST (from ARMED, OVER or QUIET) | none; a running beep stops at once |
 | **NO_GPS** | no usable reading for 5 s | none |
@@ -261,7 +262,8 @@ unclassified, residential, living_street, road, and every `*_link`}.
 
 **Effective limit,** taken from the first source that gives one:
 1. `maxspeed`
-2. if `maxspeed:forward` and `maxspeed:backward` differ, the **lower** of the two
+2. if both `maxspeed:forward` and `maxspeed:backward` are given, the **lower** of the two;
+   a value for one direction alone is ignored, because it says nothing about the other side
 3. `maxspeed:type`, `zone:maxspeed` or `source:maxspeed`
 
 **Value parsing:**
