@@ -20,11 +20,11 @@ class CarPresenceService : CompanionDeviceService() {
     }
 
     override fun onDevicePresenceEvent(event: DevicePresenceEvent) {
+        // The car is linked as a classic Bluetooth device, so only its connection counts. A head unit
+        // may stop advertising BLE once connected, and that must not end the drive.
         when (event.event) {
-            DevicePresenceEvent.EVENT_BT_CONNECTED, DevicePresenceEvent.EVENT_BLE_APPEARED ->
-                CarController.carAppeared("companion event ${event.event}")
-            DevicePresenceEvent.EVENT_BT_DISCONNECTED, DevicePresenceEvent.EVENT_BLE_DISAPPEARED ->
-                CarController.carGone("companion event ${event.event}")
+            DevicePresenceEvent.EVENT_BT_CONNECTED -> CarController.carAppeared("companion, connected")
+            DevicePresenceEvent.EVENT_BT_DISCONNECTED -> CarController.carGone("companion, disconnected")
             else -> Graph.events.log("companion event ${event.event} ignored")
         }
     }

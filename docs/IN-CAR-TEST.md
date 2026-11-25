@@ -20,6 +20,9 @@ If time is short, skip Part A: SpeedBeep's own event log records the same things
    - location: allow, then "Allow all the time"
    - link your car: Settings → Link my car → pick the car in Android's list
    - battery optimisation: turn off
+
+   If the car is on while you link it, watching may start by itself at once. That already
+   shows auto-start works: note it, then press **Stop** in the app before going on.
 2. Settings → turn on **Record drives**.
 3. **Test beep, phone speaker.** Settings → Output: Phone speaker → Test beep.
    - Heard? Loud enough?
@@ -45,8 +48,10 @@ If time is short, skip Part A: SpeedBeep's own event log records the same things
 2. Turn the car on. Within about 10 s the SpeedBeep notification should appear by itself.
    - If it does not: open SpeedBeep → Settings → **When the car connects: Ask with a
      notification** and allow "Nearby devices".
-   - Then turn the car off and on again: a "Car connected · Start" notification should
-     appear. Tap Start.
+   - Then turn the car off, wait one minute, and turn it on again: a "Car connected · Start"
+     notification should appear. Tap Start.
+   - SpeedBeep also shows "Car connected · Start" by itself when Android refuses the
+     automatic start. If that happens in step 2, note it: it answers the same question.
    - Note which of the two worked.
 3. **Drive.**
    - **In town:** go a little above 53. A beep within about 2 s, then a short reminder

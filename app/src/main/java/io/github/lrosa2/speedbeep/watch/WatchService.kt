@@ -80,6 +80,7 @@ class WatchService : Service() {
     private var session: WatchSession? = null
     private var source: LocationSource? = null
     private var recorder: DriveRecorder? = null
+    private var recordingFailed = false
     private var lastPhase: Phase? = null
     private var lastLine: String? = null
     private var lastButtons: List<NoteButton>? = null
@@ -102,7 +103,7 @@ class WatchService : Service() {
         val action = intent?.action ?: ACTION_START
         if (action == ACTION_START) {
             if (!started) begin(intent?.getStringExtra(EXTRA_REASON) ?: "restarted by Android")
-            return START_NOT_STICKY
+            return if (started) START_STICKY else START_NOT_STICKY
         }
         if (!started) {
             stopSelf(startId) // a late button press after watching ended
@@ -114,7 +115,8 @@ class WatchService : Service() {
             ACTION_PAUSE -> session?.let { handle(it.pause(now())) }
             ACTION_RESUME -> session?.let { handle(it.resume(now())) }
         }
-        return START_NOT_STICKY
+        // Sticky while watching: if the phone maker kills the process mid-drive, Android restarts it.
+        return if (started) START_STICKY else START_NOT_STICKY
     }
 
     override fun onDestroy() {
@@ -182,9 +184,14 @@ class WatchService : Service() {
 
     private fun onFix(fix: Fix) {
         val s = session ?: return
-        if (settings.recordDrives) {
+        if (settings.recordDrives && !recordingFailed) {
             val r = recorder ?: DriveRecorder(Graph.drivesDir(this)).also { recorder = it }
             r.record(fix, System.currentTimeMillis())
+            r.error?.let {
+                events.log("recording stopped: $it")
+                recordingFailed = true
+                recorder = null
+            }
         }
         handle(s.onFix(fix, now()))
     }
@@ -236,6 +243,7 @@ class WatchService : Service() {
         beeper.stop()
         recorder?.close()
         recorder = null
+        recordingFailed = false
         session = null
         lastPhase = null
         lastLine = null

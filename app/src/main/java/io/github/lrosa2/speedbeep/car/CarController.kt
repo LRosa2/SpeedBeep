@@ -3,6 +3,7 @@ package io.github.lrosa2.speedbeep.car
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.os.SystemClock
 import io.github.lrosa2.speedbeep.Graph
 import io.github.lrosa2.speedbeep.engine.CarAction
@@ -19,6 +20,9 @@ object CarController {
     private var autoStart = true
     private val check = Runnable { run(policy.onTick(now())) }
 
+    /** Keeps the CPU awake during the 30 s grace: Handler delays stop counting in deep sleep. */
+    private var graceLock: PowerManager.WakeLock? = null
+
     fun init(context: Context) {
         app = context.applicationContext
     }
@@ -27,7 +31,7 @@ object CarController {
     fun carAppeared(source: String, autoStart: Boolean = true) = onMain {
         Graph.events.log("car appeared ($source)")
         this.autoStart = autoStart
-        run(policy.onCarAppeared())
+        run(policy.onCarAppeared(now()))
     }
 
     fun carGone(source: String) = onMain {
@@ -43,8 +47,11 @@ object CarController {
         for (action in actions) {
             when (action) {
                 CarAction.START_WATCH ->
-                    if (autoStart) WatchStarter.start(app, "car connected", fromBackground = true)
-                    else WatchNotifications.showCarConnected(app)
+                    if (!autoStart || !WatchStarter.start(app, "car connected", fromBackground = true)) {
+                        // A refused start must not leave the drive unwatched in silence: a notification tap may start it.
+                        if (autoStart) Graph.events.log("asking with a notification instead")
+                        WatchNotifications.showCarConnected(app)
+                    }
                 CarAction.STOP_WATCH -> {
                     WatchNotifications.hideCarConnected(app)
                     WatchService.stop(app, "car gone", byUser = false)
@@ -54,7 +61,28 @@ object CarController {
             }
         }
         handler.removeCallbacks(check)
-        policy.checkAtMs?.let { handler.postDelayed(check, (it - now()).coerceAtLeast(0)) }
+        val checkAt = policy.checkAtMs
+        if (checkAt != null) {
+            handler.postDelayed(check, (checkAt - now()).coerceAtLeast(0))
+            holdAwake()
+        } else {
+            releaseAwake()
+        }
+    }
+
+    private fun holdAwake() {
+        if (graceLock?.isHeld == true) return
+        graceLock = app.getSystemService(PowerManager::class.java)
+            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "SpeedBeep:carGrace")
+            .apply {
+                setReferenceCounted(false)
+                acquire(CarPolicy.GRACE_MS + 5_000)
+            }
+    }
+
+    private fun releaseAwake() {
+        graceLock?.let { if (it.isHeld) it.release() }
+        graceLock = null
     }
 
     private fun onMain(block: () -> Unit) {

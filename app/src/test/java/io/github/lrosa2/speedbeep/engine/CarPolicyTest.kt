@@ -15,21 +15,21 @@ class CarPolicyTest {
 
     @Test
     fun `the car arriving starts watching`() {
-        assertEquals(listOf(START_WATCH), policy.onCarAppeared())
+        assertEquals(listOf(START_WATCH), policy.onCarAppeared(0))
     }
 
     @Test
     fun `a short drop-out changes nothing`() {
-        policy.onCarAppeared()
+        policy.onCarAppeared(0)
         assertEquals(nothing, policy.onCarGone(0))
-        assertEquals(nothing, policy.onCarAppeared())
+        assertEquals(nothing, policy.onCarAppeared(10_000))
         assertNull(policy.checkAtMs)
         assertEquals(nothing, policy.onTick(40_000))
     }
 
     @Test
     fun `the car gone for 30 s stops watching`() {
-        policy.onCarAppeared()
+        policy.onCarAppeared(0)
         policy.onCarGone(1_000)
         assertEquals(31_000L, policy.checkAtMs)
         assertEquals(nothing, policy.onTick(30_999))
@@ -40,19 +40,36 @@ class CarPolicyTest {
 
     @Test
     fun `after Stop a drop-out does not restart watching`() {
-        policy.onCarAppeared()
+        policy.onCarAppeared(0)
         assertEquals(listOf(SHOW_STOPPED_NOTE), policy.onOwnerStop())
         assertEquals(listOf(HIDE_STOPPED_NOTE), policy.onCarGone(0))
-        assertEquals(listOf(SHOW_STOPPED_NOTE), policy.onCarAppeared())
+        assertEquals(listOf(SHOW_STOPPED_NOTE), policy.onCarAppeared(5_000))
     }
 
     @Test
     fun `after Stop the next real arrival starts watching again`() {
-        policy.onCarAppeared()
+        policy.onCarAppeared(0)
         policy.onOwnerStop()
         policy.onCarGone(0)
         assertEquals(listOf(STOP_WATCH), policy.onTick(30_000))
-        assertEquals(listOf(START_WATCH), policy.onCarAppeared())
+        assertEquals(listOf(START_WATCH), policy.onCarAppeared(40_000))
+    }
+
+    @Test
+    fun `after Stop a return long after the car left starts watching even if the timer never ran`() {
+        // The phone slept or the process was frozen, so onTick never came.
+        policy.onCarAppeared(0)
+        policy.onOwnerStop()
+        policy.onCarGone(1_000)
+        assertEquals(listOf(START_WATCH), policy.onCarAppeared(301_000))
+        assertNull(policy.checkAtMs)
+    }
+
+    @Test
+    fun `a return just after the grace counts as a new arrival`() {
+        policy.onCarAppeared(0)
+        policy.onCarGone(0)
+        assertEquals(listOf(START_WATCH), policy.onCarAppeared(30_000))
     }
 
     @Test
@@ -62,7 +79,7 @@ class CarPolicyTest {
 
     @Test
     fun `starting again hides the stopped note`() {
-        policy.onCarAppeared()
+        policy.onCarAppeared(0)
         policy.onOwnerStop()
         assertEquals(listOf(HIDE_STOPPED_NOTE), policy.onWatchStarted())
         assertEquals(nothing, policy.onWatchStarted())

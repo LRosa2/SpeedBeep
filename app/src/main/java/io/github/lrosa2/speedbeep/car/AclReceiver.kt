@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import io.github.lrosa2.speedbeep.Graph
 import io.github.lrosa2.speedbeep.engine.CarStart
-import io.github.lrosa2.speedbeep.watch.WatchNotifications
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -28,10 +27,8 @@ class AclReceiver : BroadcastReceiver() {
                 if (s.carStart != CarStart.NOTIFICATION || !device.address.equals(s.carAddress, ignoreCase = true)) return@launch
                 when (action) {
                     BluetoothDevice.ACTION_ACL_CONNECTED -> CarController.carAppeared("bluetooth", autoStart = false)
-                    BluetoothDevice.ACTION_ACL_DISCONNECTED -> {
-                        WatchNotifications.hideCarConnected(context)
-                        CarController.carGone("bluetooth")
-                    }
+                    // "Car connected" stays through a quick drop-out; CarController hides it after 30 s.
+                    BluetoothDevice.ACTION_ACL_DISCONNECTED -> CarController.carGone("bluetooth")
                 }
             } finally {
                 pending.finish()

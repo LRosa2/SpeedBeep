@@ -34,7 +34,7 @@ class Beeper(private val context: Context, private val events: EventLog) {
         val attributes = attributes(s.output)
         requestFocus(s.output, attributes)
         val alarmPlaying = s.sound == SoundKind.PHONE_ALARM && s.alarmUri != null && playAlarm(s, attributes)
-        if (!alarmPlaying) playPcm(Tones.main(s.sound, s.mainBeepMs), s, attributes)
+        if (!alarmPlaying) playPcm(Tones.main(s.sound, s.mainBeepMs), s, attributes, "main beep")
         handler.postDelayed(finish, s.mainBeepMs + END_MARGIN_MS)
     }
 
@@ -42,7 +42,7 @@ class Beeper(private val context: Context, private val events: EventLog) {
         stop()
         val attributes = attributes(s.output)
         requestFocus(s.output, attributes)
-        playPcm(Tones.reminder(), s, attributes)
+        playPcm(Tones.reminder(), s, attributes, "reminder")
         handler.postDelayed(finish, Tones.REMINDER_MS + END_MARGIN_MS)
     }
 
@@ -79,7 +79,18 @@ class Beeper(private val context: Context, private val events: EventLog) {
         if (audio.requestAudioFocus(request) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) focus = request
     }
 
-    private fun playPcm(pcm: ShortArray, s: Settings, attributes: AudioAttributes) {
+    /** Never throws: a failed beep is logged, and the next beep tries again (watching must go on). */
+    private fun playPcm(pcm: ShortArray, s: Settings, attributes: AudioAttributes, what: String) {
+        try {
+            startPcm(pcm, s, attributes)
+        } catch (e: Exception) {
+            events.log("$what failed (${e.javaClass.simpleName}: ${e.message})")
+            track?.release()
+            track = null
+        }
+    }
+
+    private fun startPcm(pcm: ShortArray, s: Settings, attributes: AudioAttributes) {
         val format = AudioFormat.Builder()
             .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
             .setSampleRate(Tones.SAMPLE_RATE)
@@ -91,10 +102,10 @@ class Beeper(private val context: Context, private val events: EventLog) {
             .setTransferMode(AudioTrack.MODE_STATIC)
             .setBufferSizeInBytes(pcm.size * 2)
             .build()
+        track = t
         t.write(pcm, 0, pcm.size)
         t.setVolume(s.volumePercent / 100f)
         t.play()
-        track = t
     }
 
     /** Loops the chosen phone alarm sound until [finish] cuts it. False if it cannot play. */

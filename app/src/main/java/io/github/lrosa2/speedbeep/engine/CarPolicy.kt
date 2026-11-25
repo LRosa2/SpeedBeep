@@ -20,10 +20,17 @@ class CarPolicy {
     /** When [onTick] must next run, or null. */
     val checkAtMs: Long? get() = goneSinceMs?.plus(GRACE_MS)
 
-    fun onCarAppeared(): List<CarAction> {
-        if (goneSinceMs != null) { // back within the grace period
+    fun onCarAppeared(nowMs: Long): List<CarAction> {
+        val since = goneSinceMs
+        if (since != null) {
             goneSinceMs = null
-            return if (stoppedByOwner) listOf(CarAction.SHOW_STOPPED_NOTE) else emptyList()
+            if (nowMs - since < GRACE_MS) { // back within the grace period
+                return if (stoppedByOwner) listOf(CarAction.SHOW_STOPPED_NOTE) else emptyList()
+            }
+            // The grace ran out but onTick never came (deep sleep, frozen process): a new arrival.
+            // No STOP_WATCH first: a stop right before a start would land on the dying service.
+            stoppedByOwner = false
+            return listOf(CarAction.START_WATCH)
         }
         if (present) return emptyList()
         present = true

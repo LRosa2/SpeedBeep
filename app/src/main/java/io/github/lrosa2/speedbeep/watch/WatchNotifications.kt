@@ -20,23 +20,33 @@ object WatchNotifications {
     private const val STOPPED_ID = 3
     private const val CAR_ID = 4
 
-    private const val WATCH = "watch"
+    // "watching" and "stopped_note" replace the first channels ("watch", "stopped"), whose importance was
+    // too low for the lock screen; a channel's importance cannot change once it exists.
+    private const val WATCH = "watching"
     private const val PROBLEMS = "problems"
-    private const val STOPPED = "stopped"
+    private const val STOPPED = "stopped_note"
     private const val CAR = "car"
 
     private const val FLAGS = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
 
     fun createChannels(context: Context) {
-        manager(context).createNotificationChannels(
+        val manager = manager(context)
+        manager.deleteNotificationChannel("watch")
+        manager.deleteNotificationChannel("stopped")
+        manager.createNotificationChannels(
             listOf(
-                NotificationChannel(WATCH, "Watching", NotificationManager.IMPORTANCE_LOW).apply {
+                // Default importance, so phones that hide silent notifications still show it on the lock
+                // screen (spec 5.3). No sound or vibration of its own: the beeper does the beeping.
+                NotificationChannel(WATCH, "Watching", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                    setSound(null, null)
+                    enableVibration(false)
                     setShowBadge(false)
                     lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                 },
                 NotificationChannel(PROBLEMS, "Problems", NotificationManager.IMPORTANCE_DEFAULT),
-                NotificationChannel(STOPPED, "Stopped while the car is connected", NotificationManager.IMPORTANCE_MIN).apply {
+                NotificationChannel(STOPPED, "Stopped while the car is connected", NotificationManager.IMPORTANCE_LOW).apply {
                     setShowBadge(false)
+                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                 },
                 NotificationChannel(CAR, "Car connected", NotificationManager.IMPORTANCE_HIGH).apply {
                     lockscreenVisibility = Notification.VISIBILITY_PUBLIC

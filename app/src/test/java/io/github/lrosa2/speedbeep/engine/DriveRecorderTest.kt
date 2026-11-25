@@ -2,6 +2,7 @@ package io.github.lrosa2.speedbeep.engine
 
 import io.github.lrosa2.speedbeep.core.rules.Fix
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
@@ -23,6 +24,17 @@ class DriveRecorderTest {
         val file = recorder.file!!
         assertEquals("drive-20261125-142205.csv", file.name)
         assertEquals(fixes.map { it.copy(elapsedMs = it.elapsedMs - 9_000) }, DriveCsv.parse(file.readText()))
+    }
+
+    @Test
+    fun `a drive that cannot be written stops recording instead of failing`() {
+        val notADir = File(dir, "drives").apply { writeText("a file where the folder should be") }
+        val recorder = DriveRecorder(notADir)
+        val fix = Fix(0, 47.0, 8.0, 16.7f, 0.5f, 4f, 90f)
+        recorder.record(fix, 0)
+        recorder.record(fix.copy(elapsedMs = 1_000), 1_000)
+        recorder.close()
+        assertNotNull(recorder.error)
     }
 
     @Test
