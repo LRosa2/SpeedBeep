@@ -15,6 +15,7 @@ import io.github.lrosa2.speedbeep.car.CarController
 import io.github.lrosa2.speedbeep.core.road.NoRoadData
 import io.github.lrosa2.speedbeep.core.rules.Fix
 import io.github.lrosa2.speedbeep.core.rules.Phase
+import io.github.lrosa2.speedbeep.engine.AdapterState
 import io.github.lrosa2.speedbeep.engine.DriveRecorder
 import io.github.lrosa2.speedbeep.engine.NoteButton
 import io.github.lrosa2.speedbeep.engine.Settings
@@ -25,6 +26,7 @@ import io.github.lrosa2.speedbeep.engine.StatusText
 import io.github.lrosa2.speedbeep.engine.WatchSession
 import io.github.lrosa2.speedbeep.engine.WatchStatus
 import io.github.lrosa2.speedbeep.engine.WatchUpdate
+import io.github.lrosa2.speedbeep.obd.CarScanRunner
 import io.github.lrosa2.speedbeep.obd.ObdSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -88,6 +90,9 @@ class WatchService : Service() {
     private var lastCarKmh: Int? = null
     private var lastCarMs = 0L
     private var lastSource: SpeedSource? = null
+
+    /** The adapter was reached at least once during this watch: then the unplug reminder may follow (spec §4.5). */
+    private var adapterReached = false
     private var lastPhase: Phase? = null
     private var lastLine: String? = null
     private var lastButtons: List<NoteButton>? = null
@@ -159,6 +164,8 @@ class WatchService : Service() {
         if (!started) return
         val s = WatchSession(settings, now(), Graph.roads.value?.lookup ?: NoRoadData)
         session = s
+        WatchNotifications.hideUnplug(this)
+        CarScanRunner.cancel("watching started") // the adapter takes one connection at a time
         scope.launch { Graph.roads.filterNotNull().collect { s.setRoads(it.lookup) } }
         val src = LocationSources.create(this, events)
         source = src
@@ -212,8 +219,18 @@ class WatchService : Service() {
         obd = null
         obdAddress = s.obdAddress
         lastCarKmh = null
-        val address = s.obdAddress ?: return
-        obd = ObdSource(this, address, events, ::onCarSpeed).also { it.start() }
+        val address = s.obdAddress
+        if (address == null) {
+            onAdapterState(AdapterState.NONE)
+            return
+        }
+        onAdapterState(AdapterState.CONNECTING)
+        obd = ObdSource(this, address, events, ::onCarSpeed, ::onAdapterState).also { it.start() }
+    }
+
+    private fun onAdapterState(state: AdapterState) {
+        if (state == AdapterState.REACHED) adapterReached = true
+        session?.let { handle(it.onAdapter(state)) }
     }
 
     private fun onCarSpeed(kmh: Int) {
@@ -271,6 +288,11 @@ class WatchService : Service() {
 
     private fun end(reason: String, byUser: Boolean) {
         events.log("watching stopped ($reason${if (byUser) ", by the owner" else ""})")
+        if (settings.unplugReminderDue(adapterReached)) {
+            WatchNotifications.showUnplug(this)
+            events.log("unplug reminder shown")
+        }
+        adapterReached = false
         started = false
         handler.removeCallbacks(tick)
         scope.coroutineContext.cancelChildren()

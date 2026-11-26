@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -15,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import io.github.lrosa2.speedbeep.Graph
 import io.github.lrosa2.speedbeep.engine.Settings
+import io.github.lrosa2.speedbeep.obd.CarScanRunner
 import io.github.lrosa2.speedbeep.obd.ObdLinks
 import io.github.lrosa2.speedbeep.obd.ObdTest
 import io.github.lrosa2.speedbeep.watch.WatchBus
@@ -53,6 +55,7 @@ fun ObdSettings(s: Settings, change: ((Settings) -> Settings) -> Unit) {
             when {
                 testing -> Unit
                 WatchBus.running -> result = "Stop watching first: the adapter takes one connection at a time."
+                CarScanRunner.running -> result = "Wait for the car scan to end, or stop it."
                 else -> {
                     testing = true
                     result = null
@@ -71,8 +74,10 @@ fun ObdSettings(s: Settings, change: ((Settings) -> Settings) -> Unit) {
             },
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Remove adapter") }
+        Toggle("Remind me to unplug it after each drive", s.unplugReminder) { on -> change { it.copy(unplugReminder = on) } }
     }
     result?.let { Notice(it) }
+    if (address != null) CarScanSection(address, busy = testing) { result = it }
     if (picking) {
         PairedDevicesDialog(
             context,
@@ -85,5 +90,41 @@ fun ObdSettings(s: Settings, change: ((Settings) -> Settings) -> Unit) {
             title = "Choose the OBD adapter",
             extra = ObdLinks.extraChoices,
         )
+    }
+}
+
+/** "Scan car data" (spec §4.6): looks for the tyre pressures; the owner shares the file. */
+@Composable
+private fun CarScanSection(address: String, busy: Boolean, refuse: (String) -> Unit) {
+    val context = LocalContext.current
+    val scan by CarScanRunner.state.collectAsState()
+    val latest = remember(scan) { CarScanRunner.latest(context) }
+    when (val st = scan) {
+        is CarScanRunner.State.Running -> {
+            Text("Scanning: ${st.progress}")
+            OutlinedButton(onClick = { CarScanRunner.cancel("stopped by the owner") }, modifier = Modifier.fillMaxWidth()) {
+                Text("Stop scan")
+            }
+        }
+        else -> {
+            OutlinedButton(
+                onClick = {
+                    when {
+                        busy -> Unit
+                        WatchBus.running -> refuse("Stop watching first: the adapter takes one connection at a time.")
+                        else -> CarScanRunner.start(context, address, Graph.events)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Scan car data (tyre pressures)") }
+            Text("Parked, power on, right after a drive. It only reads, takes up to 20 minutes; keep SpeedBeep open.")
+            if (st is CarScanRunner.State.Done) Notice("Car scan ${st.text}")
+        }
+    }
+    if (latest != null && scan !is CarScanRunner.State.Running) {
+        OutlinedButton(
+            onClick = { Sharing.file(context, "SpeedBeep ${latest.name}", latest, "text/plain") },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Share car scan (${latest.name})") }
     }
 }

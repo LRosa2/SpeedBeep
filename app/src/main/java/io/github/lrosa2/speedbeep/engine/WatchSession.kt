@@ -26,6 +26,7 @@ data class WatchStatus(
     val simpleMode: Boolean,
     val pauseMin: Int,
     val speedSource: SpeedSource = SpeedSource.GPS,
+    val adapter: AdapterState = AdapterState.NONE,
 )
 
 data class WatchUpdate(val status: WatchStatus, val sound: Sound)
@@ -51,6 +52,14 @@ class WatchSession(settings: Settings, startMs: Long, private var roads: RoadLoo
 
     private var lastCarMs: Long? = null
     private var source = SpeedSource.GPS
+    private var adapter = AdapterState.NONE
+
+    /** The adapter's link changed (spec §4.5); only the status line shows it. */
+    fun onAdapter(state: AdapterState): WatchUpdate {
+        adapter = state
+        status = status.copy(adapter = state)
+        return WatchUpdate(status, Sound.NONE)
+    }
 
     /** The newest GPS fix ignored while the car's speed was fresh: GPS's first reading at the handover. */
     private var waitingGps: Fix? = null
@@ -116,7 +125,7 @@ class WatchSession(settings: Settings, startMs: Long, private var roads: RoadLoo
     private fun apply(out: RulesOutput): WatchUpdate {
         status = WatchStatus(
             out.phase, out.speedKmh, out.roadContext, out.noRoadData, out.pausedUntilMs,
-            settings.thresholdKmh, settings.simpleMode, settings.pauseMin, source,
+            settings.thresholdKmh, settings.simpleMode, settings.pauseMin, source, adapter,
         )
         return WatchUpdate(status, out.sound)
     }

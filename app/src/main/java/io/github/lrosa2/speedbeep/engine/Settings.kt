@@ -36,6 +36,8 @@ data class Settings(
     /** The paired ELM327 adapter (spec §4.5), upper case; null when none is chosen. */
     val obdAddress: String? = null,
     val obdName: String? = null,
+    /** After a watch that reached the adapter, remind the owner to unplug it before a long stop (spec §4.5). */
+    val unplugReminder: Boolean = true,
 ) {
     companion object {
         val THRESHOLD_KMH = 20..150
@@ -46,6 +48,9 @@ data class Settings(
     }
 
     val simpleMode: Boolean get() = mode == Mode.SIMPLE
+
+    /** When watching ends: remind the owner to unplug the adapter? */
+    fun unplugReminderDue(adapterReached: Boolean) = unplugReminder && adapterReached
 
     fun clamped(): Settings = copy(
         thresholdKmh = thresholdKmh.coerceIn(THRESHOLD_KMH),
@@ -95,6 +100,7 @@ object SettingsCodec {
         s.carName?.let { put("carName", it) }
         s.obdAddress?.let { put("obdAddress", it) }
         s.obdName?.let { put("obdName", it) }
+        put("unplugReminder", s.unplugReminder)
     }
 
     fun decode(m: Map<String, Any?>): Settings {
@@ -121,6 +127,7 @@ object SettingsCodec {
             carName = str("carName"),
             obdAddress = str("obdAddress"),
             obdName = str("obdName"),
+            unplugReminder = bool("unplugReminder", d.unplugReminder),
         ).clamped()
     }
 }

@@ -94,4 +94,18 @@ class SettingsCodecTest {
         assertNull(saved010.obdAddress)
         assertEquals(55, saved010.thresholdKmh)
     }
+
+    @Test
+    fun `the unplug reminder is on by default and survives a save and load`() {
+        assertTrue(SettingsCodec.decode(mapOf("thresholdKmh" to 55)).unplugReminder)
+        val off = Settings(unplugReminder = false)
+        assertEquals(off, SettingsCodec.decode(SettingsCodec.encode(off)))
+    }
+
+    @Test
+    fun `the unplug reminder is due only when the adapter was reached during the watch and the reminder is on`() {
+        assertTrue(Settings().unplugReminderDue(adapterReached = true))
+        assertFalse(Settings().unplugReminderDue(adapterReached = false))
+        assertFalse(Settings(unplugReminder = false).unplugReminderDue(adapterReached = true))
+    }
 }

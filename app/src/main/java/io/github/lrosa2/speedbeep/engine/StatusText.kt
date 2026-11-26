@@ -22,7 +22,11 @@ object StatusText {
             s.phase == Phase.OVER -> "$speed · OVER ${s.thresholdKmh}"
             s.phase == Phase.FAST_ROAD -> "$speed · fast road, silent"
             s.phase == Phase.QUIET -> "$speed · quiet this stretch"
-            s.simpleMode -> if (s.speedSource == SpeedSource.CAR) "$speed · simple mode · car" else "$speed · simple mode"
+            s.simpleMode -> when {
+                s.speedSource == SpeedSource.CAR -> "$speed · simple mode · car"
+                s.adapter == AdapterState.UNREACHABLE || s.adapter == AdapterState.GAVE_UP -> "$speed · simple mode · adapter not connected"
+                else -> "$speed · simple mode"
+            }
             s.noRoadData -> "$speed · simple mode · no road data"
             else -> "$speed · town"
         }

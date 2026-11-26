@@ -1,3 +1,4 @@
 <paths>
     <external-files-path name="drives" path="drives/" />
+    <external-files-path name="scans" path="scans/" />
 </paths>

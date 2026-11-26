@@ -19,6 +19,7 @@ object WatchNotifications {
     private const val PROBLEM_ID = 2
     private const val STOPPED_ID = 3
     private const val CAR_ID = 4
+    private const val UNPLUG_ID = 5
 
     // "watching" and "stopped_note" replace the first channels ("watch", "stopped"), whose importance was
     // too low for the lock screen; a channel's importance cannot change once it exists.
@@ -26,6 +27,7 @@ object WatchNotifications {
     private const val PROBLEMS = "problems"
     private const val STOPPED = "stopped_note"
     private const val CAR = "car"
+    private const val UNPLUG = "unplug"
 
     private const val FLAGS = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
 
@@ -49,6 +51,10 @@ object WatchNotifications {
                     lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                 },
                 NotificationChannel(CAR, "Car connected", NotificationManager.IMPORTANCE_HIGH).apply {
+                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                },
+                // Default importance: one sound as the owner leaves the car, which is the point of it.
+                NotificationChannel(UNPLUG, "Unplug the OBD adapter", NotificationManager.IMPORTANCE_DEFAULT).apply {
                     lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                 },
             ),
@@ -116,6 +122,23 @@ object WatchNotifications {
     }
 
     fun hideCarConnected(context: Context) = manager(context).cancel(CAR_ID)
+
+    /** After a watch that reached the OBD adapter (spec §4.5): a cheap adapter drains the car's battery while parked. */
+    fun showUnplug(context: Context) {
+        val text = "If the car will stand for a week or more, unplug the adapter: it drains the car's battery."
+        val n = Notification.Builder(context, UNPLUG)
+            .setSmallIcon(R.drawable.ic_stat_speed)
+            .setContentTitle("Unplug the OBD adapter?")
+            .setContentText(text)
+            .setStyle(Notification.BigTextStyle().bigText(text))
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setContentIntent(openApp(context))
+            .setAutoCancel(true)
+            .build()
+        manager(context).notify(UNPLUG_ID, n)
+    }
+
+    fun hideUnplug(context: Context) = manager(context).cancel(UNPLUG_ID)
 
     private fun action(context: Context, button: NoteButton, pauseMin: Int): Notification.Action {
         val (label, action) = when (button) {

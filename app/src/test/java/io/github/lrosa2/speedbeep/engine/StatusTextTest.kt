@@ -16,7 +16,24 @@ class StatusTextTest {
         noRoadData: Boolean = false,
         simple: Boolean = false,
         pausedUntil: Long? = null,
-    ) = WatchStatus(phase, kmh, RoadContext.NORMAL, noRoadData, pausedUntil, 53, simple, 10)
+        adapter: AdapterState = AdapterState.NONE,
+    ) = WatchStatus(phase, kmh, RoadContext.NORMAL, noRoadData, pausedUntil, 53, simple, 10, adapter = adapter)
+
+    @Test
+    fun `simple mode says when the adapter is out of reach or given up`() {
+        assertEquals("52 km/h · simple mode · adapter not connected", line(status(Phase.ARMED, simple = true, adapter = AdapterState.UNREACHABLE)))
+        assertEquals("52 km/h · simple mode · adapter not connected", line(status(Phase.ARMED, simple = true, adapter = AdapterState.GAVE_UP)))
+    }
+
+    @Test
+    fun `an adapter that is connecting or reached but sends no speed adds nothing`() {
+        assertEquals("52 km/h · simple mode", line(status(Phase.ARMED, simple = true, adapter = AdapterState.CONNECTING)))
+        assertEquals("52 km/h · simple mode", line(status(Phase.ARMED, simple = true, adapter = AdapterState.REACHED)))
+    }
+
+    @Test
+    fun `smart mode does not mention the adapter`() =
+        assertEquals("52 km/h · town", line(status(Phase.ARMED, adapter = AdapterState.UNREACHABLE)))
 
     private fun line(s: WatchStatus) = StatusText.line(s, 0, 0, zurich)
 

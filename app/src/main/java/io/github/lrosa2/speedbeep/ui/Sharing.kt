@@ -15,10 +15,10 @@ object Sharing {
         context.startActivity(Intent.createChooser(send, subject))
     }
 
-    fun file(context: Context, subject: String, file: File) {
+    fun file(context: Context, subject: String, file: File, type: String = "text/csv") {
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
         val send = Intent(Intent.ACTION_SEND)
-            .setType("text/csv")
+            .setType(type)
             .putExtra(Intent.EXTRA_STREAM, uri)
             .putExtra(Intent.EXTRA_SUBJECT, subject)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

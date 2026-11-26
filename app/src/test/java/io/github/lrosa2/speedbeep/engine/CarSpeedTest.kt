@@ -23,6 +23,18 @@ class CarSpeedTest {
     }
 
     @Test
+    fun `the adapter's state is kept in the status across readings and setting changes`() {
+        val s = WatchSession(simple, 0)
+        assertEquals(AdapterState.NONE, s.status.adapter)
+        assertEquals(Sound.NONE, s.onAdapter(AdapterState.UNREACHABLE).sound)
+        assertEquals(AdapterState.UNREACHABLE, s.status.adapter)
+        s.onFix(gps(1_000, 30.0), 1_000)
+        s.onTick(2_000)
+        s.updateSettings(simple.copy(thresholdKmh = 60))
+        assertEquals(AdapterState.UNREACHABLE, s.status.adapter)
+    }
+
+    @Test
     fun `GPS is ignored while the car's speed is fresh`() {
         val s = WatchSession(simple, 0)
         s.onCarSpeed(40, 0)
