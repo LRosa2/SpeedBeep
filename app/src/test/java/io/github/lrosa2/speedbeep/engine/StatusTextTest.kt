@@ -60,4 +60,8 @@ class StatusTextTest {
             assertEquals(listOf(NoteButton.PAUSE, NoteButton.STOP), StatusText.buttons(phase))
         }
     }
+
+    @Test
+    fun `simple mode shows when the speed comes from the car`() =
+        assertEquals("52 km/h · simple mode · car", line(status(Phase.ARMED, simple = true).copy(speedSource = SpeedSource.CAR)))
 }
