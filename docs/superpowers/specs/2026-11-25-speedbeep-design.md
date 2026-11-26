@@ -50,6 +50,7 @@ Success means:
 | D15 | Main roads with no speed information stay TOWN (they beep), also outside built-up areas. Using land-use outlines as town limits was measured and rejected: it would also silence about a quarter of the road length really posted 50 or less. See §6.2. | user choice 2026-11-25, after measurement |
 | D16 | The §5.1 notification fallback is built in from the start, chosen in settings ("When the car connects: Start watching / Ask with a notification"); the default is the companion route. One car trip can then test both, and D14 decides the default. | owner's request 2026-11-25 to finish the app before the car test |
 | D17 | Simple mode can take the speed from an ELM327 OBD adapter over classic Bluetooth. The car's speed comes first and GPS is the fallback. Smart mode stays on GPS. See §4.5. | owner's request 2026-11-26 |
+| D18 | The adapter works in the owner's car (simple mode, 2026-11-26). The status line says when the adapter is out of reach. An adapter out of reach is tried for 5 minutes, then not again until the next watch. A notification after each drive reminds the owner to unplug it, because the car can stand for more than a week and a cheap adapter drains the battery. "Scan car data" looks for the tyre pressures (§4.6). | owner's request 2026-11-26 |
 
 ## 3. Components
 
@@ -178,6 +179,12 @@ the context back to NORMAL.
   port profile). It resets and sets up the adapter (`ATZ`, `ATE0`, `ATL0`, `ATS0`, `ATH0`,
   `ATSP0`) and then asks for the vehicle speed (mode 01, PID 0D, whole km/h) once a second.
   After a failure it reconnects every 5 s.
+- When Bluetooth cannot reach the adapter (unplugged, out of range), SpeedBeep keeps trying
+  for 5 minutes from the first failure, then stops until the next watch, and logs it. Once
+  the adapter is reached, the 5 minutes start again at the next failure. Failures after the
+  adapter is reached (the car does not answer) do not count: those keep retrying, as before.
+  To try again during the same drive, stop and start watching, or remove and choose the
+  adapter again.
 - In simple mode the car's speed comes first. A GPS fix is ignored while the last car reading
   is at most 3 s old. Without a car reading for 3 s, GPS takes over until the car answers
   again. The rules get the car's reading as a usable speed (§4.1), with no position.
@@ -186,9 +193,42 @@ the context back to NORMAL.
   a missing reading; three in a row, or no reply within 2 s, drop the connection.
 - GPS keeps running in both modes. It is the fallback, and it fills the drive recording,
   which gets a column with the car's speed next to each GPS fix.
-- The status line adds "· car" while the car's speed is in use. Switches between the car and
-  GPS go to the event log, as do the adapter's replies while it is set up.
+- The status line adds "· car" while the car's speed is in use, and "· adapter not connected"
+  in simple mode while Bluetooth cannot reach the adapter or SpeedBeep has stopped trying.
+  Switches between the car and GPS go to the event log, as do the adapter's replies while it
+  is set up.
+- **Unplug reminder:** when watching ends after a watch that reached the adapter at least
+  once, a notification says "Unplug the OBD adapter? If the car will stand for a week or
+  more, unplug the adapter: it drains the car's battery." It makes the phone's normal
+  notification sound once (its own channel) and goes away when the next watch starts. A
+  setting turns it off; it is on by default.
 - Not covered: adapters that only speak Bluetooth LE, and Wi-Fi adapters.
+
+### 4.6 Car data scan (tyre pressures, D18)
+
+- Standard OBD-II has no tyre pressures. On Toyota they come from the tyre-pressure control
+  unit with a request that differs by model, and none is known for the owner's 2015 Yaris
+  Hybrid. The car may even have no pressure sensors at all (a system that only infers low
+  pressure from the wheel speeds). So the first step is a scan that records the car's raw
+  answers; a later version shows the pressures once the scan has found them.
+- **Scan car data** in settings, with watching stopped: parked, power on, right after a drive
+  (the wheel sensors only transmit while the wheels turn). It sets up the adapter with
+  headers on, then:
+  - tries two known guesses behind Toyota's gateway (750, sub-address 2A request 22 10 05
+    from a GR Yaris; sub-address A7 request 21 30);
+  - asks every gateway sub-address 00–FF and every 11-bit address 700–7F7 (not 7DF) for
+    `21 01`, and notes which control units answer;
+  - reads every local identifier 02–FF (service 21) from each unit that knows service 21,
+    and identifiers 1000–103F (service 22) from each unit that knows only service 22.
+- **Read-only by construction:** only adapter settings and the read services 01, 21 and 22
+  are allowed; the scan refuses any other command. No 09 either, so the VIN does not end up
+  in the shared file.
+- Every command and raw reply goes to a text file, line by line, so a scan cut short keeps
+  what it found. "Share car scan" sends the newest file.
+- It stops after 3 timeouts in a row, after 20 minutes, when the owner taps Stop scan, or
+  when watching starts (the adapter takes one connection at a time).
+- An adapter that refuses CAN extended addressing (`ATCEA`) skips the gateway part; the file
+  says so.
 
 ## 5. Start, stop, pause
 
@@ -410,12 +450,14 @@ All values are little-endian.
 | Linked car | none | Link / Unlink |
 | When the car connects | Start watching | Start watching / Ask with a notification |
 | OBD adapter (simple mode, §4.5) | none | Choose from paired devices / Remove |
+| Remind me to unplug it after each drive (§4.5) | on | on/off |
 | Keep screen on while app is open | on | on/off |
 | Record drives (debug) | off | on/off |
 
 - **Test beep** button: plays the main beep with the current sound, output and volume.
 - **Test adapter** button: connects to the OBD adapter, reads one speed and shows the result
   (§4.5). It needs watching to be stopped, because the adapter takes one connection at a time.
+- **Scan car data** and **Share car scan** buttons (§4.6), also with watching stopped.
 - **Setup checklist** on the main screen until everything is granted. Each item shows a
   fix button:
   - notifications

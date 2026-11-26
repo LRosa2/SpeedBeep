@@ -3,10 +3,11 @@
 About 10 minutes parked and one drive of about 20 minutes, with some town streets and a
 stretch of motorway or 80 road. Afterwards, send back the two logs and the recorded drive.
 
-Files: on the phone, open the release page
-https://github.com/LRosa2/SpeedBeep/releases/tag/v0.1.0 (sign in to GitHub first: the repo
-is private). Download `SpeedBeep-0.1.0.apk`, and `SpeedBeep-spike.apk` if you do Part A.
-Open each one to install it (allow installing from that source).
+Files: on the phone, open https://github.com/LRosa2/SpeedBeep/releases (sign in to GitHub
+first: the repo is private) and take the newest release. Download its `SpeedBeep-….apk`, and
+`SpeedBeep-spike.apk` from release v0.1.0 if you do Part A. Open each one to install it
+(allow installing from that source). A newer SpeedBeep installs over the old one and keeps
+the settings.
 
 ## Part A: the spike, parked (decides D14)
 
@@ -66,7 +67,7 @@ If time is short, skip Part A: SpeedBeep's own event log records the same things
    - **Back in town:** beeps again above 53.
 5. Park and turn the car off. After about 30 s the notification should go away.
 
-## Part D: OBD adapter (version 0.2.0 only)
+## Part D: OBD adapter (version 0.2.0 and later)
 
 1. Plug the adapter into the car's OBD port (under the dashboard, driver's side). Pair it
    in Android's Bluetooth settings (PIN usually 1234 or 0000).
@@ -80,6 +81,21 @@ If time is short, skip Part A: SpeedBeep's own event log records the same things
    Beeps as in Part C.
 5. Send back the event log and the last drive: the drive file has the car's speed next to
    the GPS speed, to compare the two.
+6. **Unplugged (0.2.1).** Unplug the adapter and start watching. Within about 30 s the status
+   line shows "· adapter not connected". After about 5 minutes the event log says
+   "no more tries until the next watch".
+7. **Unplug reminder (0.2.1).** After a drive with the adapter plugged in, park and turn the
+   car off. When the SpeedBeep notification goes away, an "Unplug the OBD adapter?"
+   notification appears with the normal notification sound.
+
+## Part E: car data scan, tyre pressures (0.2.1)
+
+1. Right after a drive, parked, power still on: stop watching (lock screen → **Stop**).
+2. Settings → OBD adapter → **Scan car data (tyre pressures)**. It only reads. Keep SpeedBeep
+   open; it takes up to 20 minutes and shows what it is doing.
+3. When it says "Car scan done" (or stopped), tap **Share car scan** and send the file.
+4. Say which pressures you last set (for example 2.3 bar front and back), and whether the
+   valves are metal with a nut (sensors in the wheels) or rubber.
 
 ## Send back
 
