@@ -49,6 +49,7 @@ Success means:
 | D14 | Reserved for the Bluetooth auto-start spike result (plan 1, Task 1). | pending |
 | D15 | Main roads with no speed information stay TOWN (they beep), also outside built-up areas. Using land-use outlines as town limits was measured and rejected: it would also silence about a quarter of the road length really posted 50 or less. See §6.2. | user choice 2026-11-25, after measurement |
 | D16 | The §5.1 notification fallback is built in from the start, chosen in settings ("When the car connects: Start watching / Ask with a notification"); the default is the companion route. One car trip can then test both, and D14 decides the default. | owner's request 2026-11-25 to finish the app before the car test |
+| D17 | Simple mode can take the speed from an ELM327 OBD adapter over classic Bluetooth. The car's speed comes first and GPS is the fallback. Smart mode stays on GPS. See §4.5. | owner's request 2026-11-26 |
 
 ## 3. Components
 
@@ -168,6 +169,26 @@ the context back to NORMAL.
 - Road matching is skipped and the road context is always NORMAL. Everything else in the
   state machine is unchanged.
 - It uses the same threshold T. Changing T is one tap from the main screen, see §7.
+
+### 4.5 Speed from the car's OBD adapter (simple mode, D17)
+
+- An ELM327 OBD-II adapter, paired in Android's Bluetooth settings, can supply the speed.
+  It is chosen in settings; there is none by default.
+- While watching with an adapter chosen, SpeedBeep connects over classic Bluetooth (serial
+  port profile). It resets and sets up the adapter (`ATZ`, `ATE0`, `ATL0`, `ATS0`, `ATH0`,
+  `ATSP0`) and then asks for the vehicle speed (mode 01, PID 0D, whole km/h) once a second.
+  After a failure it reconnects every 5 s.
+- In simple mode the car's speed comes first. A GPS fix is ignored while the last car reading
+  is at most 3 s old. Without a car reading for 3 s, GPS takes over until the car answers
+  again. The rules get the car's reading as a usable speed (§4.1), with no position.
+- Smart mode keeps the GPS speed, because road matching needs the GPS position.
+- When several control units answer, the highest speed counts (D10). One failed request is
+  a missing reading; three in a row drop the connection.
+- GPS keeps running in both modes. It is the fallback, and it fills the drive recording,
+  which gets a column with the car's speed next to each GPS fix.
+- The status line adds "· car" while the car's speed is in use. Switches between the car and
+  GPS go to the event log, as do the adapter's replies while it is set up.
+- Not covered: adapters that only speak Bluetooth LE, and Wi-Fi adapters.
 
 ## 5. Start, stop, pause
 
@@ -385,10 +406,13 @@ All values are little-endian.
 | Pause length N | 10 min | 1–60 min |
 | Linked car | none | Link / Unlink |
 | When the car connects | Start watching | Start watching / Ask with a notification |
+| OBD adapter (simple mode, §4.5) | none | Choose from paired devices / Remove |
 | Keep screen on while app is open | on | on/off |
 | Record drives (debug) | off | on/off |
 
 - **Test beep** button: plays the main beep with the current sound, output and volume.
+- **Test adapter** button: connects to the OBD adapter, reads one speed and shows the result
+  (§4.5). It needs watching to be stopped, because the adapter takes one connection at a time.
 - **Setup checklist** on the main screen until everything is granted. Each item shows a
   fix button:
   - notifications
