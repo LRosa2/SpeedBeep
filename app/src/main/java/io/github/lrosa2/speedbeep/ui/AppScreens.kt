@@ -68,7 +68,7 @@ fun AppScreens(beeper: Beeper) {
             onSettings = { screen = Screen.SETTINGS },
             onAbout = { screen = Screen.ABOUT },
         )
-        Screen.SETTINGS -> SettingsScreen(s, beeper, change, onBack = { screen = Screen.MAIN }, car = { CarSettings(s, change) })
+        Screen.SETTINGS -> SettingsScreen(s, beeper, change, onBack = { screen = Screen.MAIN }, car = { CarSettings(s, change); ObdSettings(s, change) })
         Screen.ABOUT -> AboutScreen(roads, onBack = { screen = Screen.MAIN })
     }
 }

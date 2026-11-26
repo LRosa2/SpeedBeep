@@ -104,19 +104,25 @@ fun CarSettings(s: Settings, change: ((Settings) -> Settings) -> Unit) {
     }
 }
 
-/** Shown only once BLUETOOTH_CONNECT is granted. */
+/** Shown only once BLUETOOTH_CONNECT is granted. [extra] adds (name, address) choices that are not paired devices. */
 @SuppressLint("MissingPermission")
 @Composable
-private fun PairedDevicesDialog(context: Context, onPick: (String, String) -> Unit, onDismiss: () -> Unit) {
+internal fun PairedDevicesDialog(
+    context: Context,
+    onPick: (String, String) -> Unit,
+    onDismiss: () -> Unit,
+    title: String = "Paired devices",
+    extra: List<Pair<String, String>> = emptyList(),
+) {
     val devices = remember {
         context.getSystemService(BluetoothManager::class.java).adapter?.bondedDevices.orEmpty()
             .map { (it.name ?: it.address) to it.address.uppercase() }
-            .sortedBy { it.first }
+            .sortedBy { it.first } + extra
     }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        title = { Text("Paired devices") },
+        title = { Text(title) },
         text = {
             Column {
                 if (devices.isEmpty()) Text("No paired devices")

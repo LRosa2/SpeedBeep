@@ -20,10 +20,12 @@ import io.github.lrosa2.speedbeep.engine.NoteButton
 import io.github.lrosa2.speedbeep.engine.Settings
 import io.github.lrosa2.speedbeep.engine.SoundCommand
 import io.github.lrosa2.speedbeep.engine.SoundPolicy
+import io.github.lrosa2.speedbeep.engine.SpeedSource
 import io.github.lrosa2.speedbeep.engine.StatusText
 import io.github.lrosa2.speedbeep.engine.WatchSession
 import io.github.lrosa2.speedbeep.engine.WatchStatus
 import io.github.lrosa2.speedbeep.engine.WatchUpdate
+import io.github.lrosa2.speedbeep.obd.ObdSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -81,6 +83,11 @@ class WatchService : Service() {
     private var source: LocationSource? = null
     private var recorder: DriveRecorder? = null
     private var recordingFailed = false
+    private var obd: ObdSource? = null
+    private var obdAddress: String? = null
+    private var lastCarKmh: Int? = null
+    private var lastCarMs = 0L
+    private var lastSource: SpeedSource? = null
     private var lastPhase: Phase? = null
     private var lastLine: String? = null
     private var lastButtons: List<NoteButton>? = null
@@ -163,7 +170,8 @@ class WatchService : Service() {
             end("no location permission", byUser = false)
             return
         }
-        events.log("watching started ($reason) with ${src.name}")
+        startObd(settings)
+        events.log("watching started ($reason) with ${src.name}${settings.obdName?.let { " and OBD adapter $it" } ?: ""}")
         StartStopTile.refresh(this)
         CarController.watchStarted()
         handle(s.onTick(now()))
@@ -172,6 +180,7 @@ class WatchService : Service() {
 
     private fun applySettings(new: Settings) {
         settings = new
+        if (session != null) startObd(new)
         if (!new.recordDrives) {
             recorder?.close()
             recorder = null
@@ -186,7 +195,7 @@ class WatchService : Service() {
         val s = session ?: return
         if (settings.recordDrives && !recordingFailed) {
             val r = recorder ?: DriveRecorder(Graph.drivesDir(this)).also { recorder = it }
-            r.record(fix, System.currentTimeMillis())
+            r.record(fix, System.currentTimeMillis(), freshCarKmh())
             r.error?.let {
                 events.log("recording stopped: $it")
                 recordingFailed = true
@@ -195,6 +204,27 @@ class WatchService : Service() {
         }
         handle(s.onFix(fix, now()))
     }
+
+    /** Connects to the chosen OBD adapter, or drops it when the choice changed (spec §4.5). */
+    private fun startObd(s: Settings) {
+        if (s.obdAddress == obdAddress) return
+        obd?.stop()
+        obd = null
+        obdAddress = s.obdAddress
+        lastCarKmh = null
+        val address = s.obdAddress ?: return
+        obd = ObdSource(this, address, events, ::onCarSpeed).also { it.start() }
+    }
+
+    private fun onCarSpeed(kmh: Int) {
+        val s = session ?: return
+        lastCarKmh = kmh
+        lastCarMs = now()
+        handle(s.onCarSpeed(kmh, now()))
+    }
+
+    /** The car's speed for the drive recording, when the adapter's last reading is fresh. */
+    private fun freshCarKmh() = lastCarKmh?.takeIf { now() - lastCarMs <= WatchSession.CAR_FRESH_MS }
 
     private fun handle(update: WatchUpdate) {
         val status = update.status
@@ -218,6 +248,12 @@ class WatchService : Service() {
             events.log("state ${lastPhase ?: "start"} → ${status.phase} at ${speed(status)}, road ${status.roadContext}$noData")
             lastPhase = status.phase
         }
+        if (status.speedSource != lastSource) {
+            if (lastSource != null) {
+                events.log(if (status.speedSource == SpeedSource.CAR) "speed from the car" else "speed from GPS (adapter silent)")
+            }
+            lastSource = status.speedSource
+        }
         publish(status)
     }
 
@@ -240,6 +276,11 @@ class WatchService : Service() {
         scope.coroutineContext.cancelChildren()
         source?.stop()
         source = null
+        obd?.stop()
+        obd = null
+        obdAddress = null
+        lastCarKmh = null
+        lastSource = null
         beeper.stop()
         recorder?.close()
         recorder = null

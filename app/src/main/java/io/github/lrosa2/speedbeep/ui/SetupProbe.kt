@@ -19,7 +19,7 @@ object SetupProbe {
         location = granted(context, Manifest.permission.ACCESS_FINE_LOCATION),
         backgroundLocation = granted(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION),
         carLinked = s.carAddress != null,
-        bluetoothNeeded = s.carStart == CarStart.NOTIFICATION,
+        bluetoothNeeded = s.carStart == CarStart.NOTIFICATION || s.obdAddress != null,
         bluetoothAllowed = granted(context, Manifest.permission.BLUETOOTH_CONNECT),
         batteryUnrestricted = context.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName),
         alarmVolumeOn = context.getSystemService(AudioManager::class.java).getStreamVolume(AudioManager.STREAM_ALARM) > 0,
