@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -14,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import io.github.lrosa2.speedbeep.Graph
 import io.github.lrosa2.speedbeep.engine.Settings
 import io.github.lrosa2.speedbeep.obd.CarScanRunner
@@ -101,8 +103,14 @@ private fun CarScanSection(address: String, busy: Boolean, refuse: (String) -> U
     val latest = remember(scan) { CarScanRunner.latest(context) }
     when (val st = scan) {
         is CarScanRunner.State.Running -> {
+            // The scan runs for minutes on a plain thread: the screen stays on, so the phone does not sleep.
+            val view = LocalView.current
+            DisposableEffect(view) {
+                view.keepScreenOn = true
+                onDispose { view.keepScreenOn = false }
+            }
             Text("Scanning: ${st.progress}")
-            OutlinedButton(onClick = { CarScanRunner.cancel("stopped by the owner") }, modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(onClick = { CarScanRunner.cancel("by you") }, modifier = Modifier.fillMaxWidth()) {
                 Text("Stop scan")
             }
         }
@@ -117,7 +125,7 @@ private fun CarScanSection(address: String, busy: Boolean, refuse: (String) -> U
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Scan car data (tyre pressures)") }
-            Text("Parked, power on, right after a drive. It only reads, takes up to 20 minutes; keep SpeedBeep open.")
+            Text("Parked, power on, right after a drive. Stop watching first. It only reads and takes up to 20 minutes; keep SpeedBeep open.")
             if (st is CarScanRunner.State.Done) Notice("Car scan ${st.text}")
         }
     }

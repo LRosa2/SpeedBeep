@@ -13,7 +13,8 @@ class CarScan(
     private val link: ObdLink,
     private val out: (String) -> Unit,
     private val progress: (String) -> Unit = {},
-    private val cancelled: () -> Boolean = { false },
+    /** Why to stop now, or null to go on. */
+    private val cancelled: () -> String? = { null },
     private val clock: () -> Long = { System.nanoTime() / 1_000_000 },
 ) {
     companion object {
@@ -23,7 +24,10 @@ class CarScan(
         /** Adapter settings and questions; the last group takes a hex value (header, filter, sub-address, timeout). */
         private val ADAPTER_COMMANDS = setOf("ATZ", "ATI", "AT@1", "ATE0", "ATL0", "ATS1", "ATH1", "ATSP0", "ATDPN", "ATRV", "ATCEA")
         private val ADAPTER_SETTING = Regex("AT(ST|SH|CRA|CEA) [0-9A-F]{2,3}")
-        private val HEX_REQUEST = Regex("[0-9A-F]{2}( [0-9A-F]{2})*")
+        // At most 3 bytes. With a sub-address in front, a unit that does not expect one reads the
+        // sub-address as the length byte and the request's own length byte as the service: 2 or 3
+        // (reads), never 4, which would clear the fault codes.
+        private val HEX_REQUEST = Regex("[0-9A-F]{2}( [0-9A-F]{2}){0,2}")
 
         const val TIME_LIMIT_MS = 20 * 60_000L
         const val MAX_TIMEOUTS_IN_A_ROW = 3
@@ -120,10 +124,21 @@ class CarScan(
         for (n in 0..0xFF) {
             progress("Gateway sub-address ${n + 1} of 256")
             val ext = "%02X".format(n)
-            setExt(ext)
+            if (!setExt(ext)) {
+                out("# The adapter refused ATCEA $ext: sub-address $ext skipped.")
+                continue
+            }
             discover(GATEWAY, ext)
         }
-        command("ATCEA")
+        extOff()
+    }
+
+    /** Turns extended addressing off; an adapter that refuses is reset and set up again. */
+    private fun extOff() {
+        if ("OK" !in command("ATCEA").uppercase()) {
+            out("# The adapter refused to turn extended addressing off: resetting it.")
+            setup()
+        }
     }
 
     /** Every 11-bit request address 700–7F7 but the broadcast 7DF; replies come from the address + 8. */
@@ -147,9 +162,13 @@ class CarScan(
     private fun dump(u: ControlUnit, n: Int) {
         out("## Data of ${u.label}")
         progress("Reading control unit $n of ${found.size} (${u.label})")
+        if (u.ext == null) extOff()
         command("ATSH ${u.header}")
         command("ATCRA %03X".format(u.header.toInt(16) + 8))
-        if (u.ext != null) setExt(u.ext) else command("ATCEA")
+        if (u.ext != null && !setExt(u.ext)) {
+            out("# The adapter refused ATCEA ${u.ext}: data of ${u.label} skipped.")
+            return
+        }
         if (u.answer == Answer.NOT_SUPPORTED) {
             for (id in 0x1000..0x103F) command("22 %02X %02X".format(id shr 8, id and 0xFF))
         } else {
@@ -162,7 +181,7 @@ class CarScan(
     /** Sends [c] and writes it and its reply; a timeout is written too. */
     private fun command(c: String, timeoutMs: Long = COMMAND_TIMEOUT_MS): String {
         check(isAllowed(c)) { "not a read-only command: $c" }
-        if (cancelled()) throw Stop("stopped by the owner")
+        cancelled()?.let { throw Stop("stopped ($it)") }
         if (clock() - startMs >= TIME_LIMIT_MS) throw Stop("time limit of ${TIME_LIMIT_MS / 60_000} min")
         out("> $c")
         val reply = try {

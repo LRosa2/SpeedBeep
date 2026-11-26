@@ -14,6 +14,9 @@ import org.junit.jupiter.api.Test
 private class FakeCar(
     private val ecus: Map<String, (String) -> String?>,
     private val extendedAddressing: Boolean = true,
+    /** Sub-addresses the adapter refuses, and whether it can turn extended addressing off again. */
+    private val refusedExt: Set<String> = emptySet(),
+    private val extOff: Boolean = true,
     private val carOn: Boolean = true,
     private val timeoutsAfter: Int = Int.MAX_VALUE,
 ) : ObdLink {
@@ -27,12 +30,19 @@ private class FakeCar(
         val target = if (command.startsWith("AT")) "-" else ext?.let { "$header/$it" } ?: header
         sent += target to command
         reply = when {
-            command == "ATZ" || command == "ATI" -> "ELM327 v1.5\r\r"
+            command == "ATZ" -> "ELM327 v1.5\r\r".also {
+                header = "7DF"
+                ext = null
+            }
+            command == "ATI" -> "ELM327 v1.5\r\r"
             command == "ATRV" -> "12.4V\r\r"
             command == "ATDPN" -> "A6\r\r"
             command.startsWith("ATSH ") -> "OK\r\r".also { header = command.substringAfter(' ') }
-            command == "ATCEA" -> "OK\r\r".also { ext = null }
-            command.startsWith("ATCEA ") -> if (extendedAddressing) "OK\r\r".also { ext = command.substringAfter(' ') } else "?\r\r"
+            command == "ATCEA" -> if (extOff) "OK\r\r".also { ext = null } else "?\r\r"
+            command.startsWith("ATCEA ") -> {
+                val e = command.substringAfter(' ')
+                if (extendedAddressing && e !in refusedExt) "OK\r\r".also { ext = e } else "?\r\r"
+            }
             command.startsWith("AT") -> "OK\r\r"
             command == "01 00" -> if (carOn) "7E8 06 41 00 BE 3E B8 11 \r\r" else "NO DATA\r\r"
             else -> ecus[target]?.invoke(command) ?: "NO DATA\r\r"
@@ -67,7 +77,7 @@ class CarScanTest {
 
     private val car = mapOf("7E0" to engine, "750/A7" to tyres, "7B0" to udsOnly)
 
-    private fun scan(link: ObdLink, cancelled: () -> Boolean = { false }, clock: () -> Long = { 0L }): Pair<CarScan.Result, List<String>> {
+    private fun scan(link: ObdLink, cancelled: () -> String? = { null }, clock: () -> Long = { 0L }): Pair<CarScan.Result, List<String>> {
         val out = mutableListOf<String>()
         val result = CarScan(link, out::add, cancelled = cancelled, clock = clock).run()
         return result to out
@@ -85,7 +95,9 @@ class CarScanTest {
 
     @Test
     fun `commands that could change the car are refused`() {
-        for (c in listOf("04", "14 FF FF FF", "10 03", "11 01", "27 01", "2E 10 05 00", "2F 01", "31 01", "3B 01", "09 02", "ATMA", "ATPP 00 SV 01")) {
+        // Four bytes or more are refused too: with a sub-address in front, a unit that does not expect one
+        // would read the request's length as its service, and length 4 is service 04, clear the fault codes.
+        for (c in listOf("04", "14 FF FF FF", "10 03", "11 01", "27 01", "2E 10 05 00", "2F 01", "31 01", "3B 01", "09 02", "ATMA", "ATPP 00 SV 01", "01 0D 0C 05", "21 01 02 03")) {
             assertFalse(CarScan.isAllowed(c), c)
         }
         for (c in listOf("01 00", "21 01", "22 10 05", "ATSH 750", "ATCEA A7", "ATCEA", "ATCRA 758", "ATST 32", "ATZ")) {
@@ -121,6 +133,23 @@ class CarScanTest {
     }
 
     @Test
+    fun `an adapter that cannot turn extended addressing off is reset, so the 11-bit units are still found`() {
+        val link = FakeCar(car, extOff = false)
+        val (result, out) = scan(link)
+        assertEquals(setOf("7E0", "750/A7", "7B0"), result.responders.toSet())
+        assertTrue(out.any { "resetting" in it })
+        assertEquals(listOf("21 01") + (0..0x3F).map { "22 10 %02X".format(it) }, link.sent.filter { it.first == "7B0" }.map { it.second })
+    }
+
+    @Test
+    fun `a refused sub-address is noted and skipped`() {
+        val link = FakeCar(car, refusedExt = setOf("42"))
+        val (_, out) = scan(link)
+        assertTrue("# The adapter refused ATCEA 42: sub-address 42 skipped." in out)
+        assertEquals(listOf("21 01"), link.sent.filter { it.first == "750/41" }.map { it.second })
+    }
+
+    @Test
     fun `a car that does not answer ends the scan after the setup`() {
         val link = FakeCar(car, carOn = false)
         val (result, _) = scan(link)
@@ -139,8 +168,9 @@ class CarScanTest {
     @Test
     fun `the owner can stop the scan`() {
         val link = FakeCar(car)
-        val (result, _) = scan(link, cancelled = { link.sent.size >= 30 })
-        assertEquals("stopped by the owner", result.stoppedBy)
+        val (result, out) = scan(link, cancelled = { if (link.sent.size >= 30) "watching started" else null })
+        assertEquals("stopped (watching started)", result.stoppedBy)
+        assertTrue("## Stopped: stopped (watching started)" in out)
         assertEquals(30, link.sent.size)
     }
 

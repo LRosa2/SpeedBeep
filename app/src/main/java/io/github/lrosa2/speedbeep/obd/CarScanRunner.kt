@@ -37,7 +37,7 @@ object CarScanRunner {
 
     @Volatile private var link: ObdLink? = null
 
-    private val STAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd-HHmm")
+    private val STAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd-HHmmss")
 
     fun dir(context: Context): File = File(context.getExternalFilesDir(null) ?: context.filesDir, "scans")
 
@@ -89,7 +89,7 @@ object CarScanRunner {
                         l,
                         ::out,
                         progress = { mutableState.value = State.Running(it) },
-                        cancelled = { cancelReason != null },
+                        cancelled = { cancelReason },
                     ).run()
                     val units = "${result.responders.size} control units answered"
                     when {
@@ -102,7 +102,7 @@ object CarScanRunner {
                 l.close()
             }
         } catch (e: Exception) {
-            cancelReason?.let { "stopped ($it) before it began" } ?: "failed: ${e.message ?: e.javaClass.simpleName}"
+            cancelReason?.let { "stopped ($it)" } ?: "failed: ${e.message ?: e.javaClass.simpleName}"
         } finally {
             attempt = null
             link = null
