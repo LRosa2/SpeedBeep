@@ -197,6 +197,9 @@ the context back to NORMAL.
 - **Setup:** "Link my car" calls `CompanionDeviceManager.associate()` with a
   `BluetoothDeviceFilter` and `setSingleDevice(false)`, so Android's own dialog lists the
   devices and the user picks the car.
+  - Found in the owner's car (2026-11-26): the dialog lists only discoverable devices. A head
+    unit that is already paired and connected is not discoverable, so it does not appear. It
+    appears once the head unit is put in its "add device" (visible) mode; linking then works.
 - **Presence:**
   - API 36: `startObservingDevicePresence(ObservingDevicePresenceRequest)`, handled in
     `CompanionDeviceService.onDevicePresenceEvent`.

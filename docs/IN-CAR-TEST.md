@@ -20,7 +20,9 @@ If time is short, skip Part A: SpeedBeep's own event log records the same things
 1. Open SpeedBeep. Work through the checklist on the main screen:
    - notifications: allow
    - location: allow, then "Allow all the time"
-   - link your car: Settings → Link my car → pick the car in Android's list
+   - link your car: first make the car visible (the head unit's "add device" or pairing
+     mode), then Settings → Link my car → pick the car in Android's list. While the car is
+     not visible, it does not appear in the list.
    - battery optimisation: turn off
 
    If the car is on while you link it, watching may start by itself at once. That already
