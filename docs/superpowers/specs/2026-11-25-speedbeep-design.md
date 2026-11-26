@@ -541,7 +541,8 @@ service types, companion device pairing, and the broadcast exceptions.
    - Every notification action works from the lock screen without unlocking.
    - One real drive with "Record drives" on. The recording becomes a replay test case for
      tuning the 20 m, 30°, 5- and 2-reading values.
-6. **Release:** private repo `LRosa2/SpeedBeep`. Release APK signed with the shared key
+6. **Release:** repo `LRosa2/SpeedBeep`, public since 2026-11-26 (commits under the GitHub
+   noreply address). Release APK signed with the shared key
    through a git-ignored `keystore.properties`, installed directly on the phone.
 
 ## 10. Out of scope

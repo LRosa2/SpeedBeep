@@ -3,8 +3,8 @@
 About 10 minutes parked and one drive of about 20 minutes, with some town streets and a
 stretch of motorway or 80 road. Afterwards, send back the two logs and the recorded drive.
 
-Files: on the phone, open https://github.com/LRosa2/SpeedBeep/releases (sign in to GitHub
-first: the repo is private) and take the newest release. Download its `SpeedBeep-….apk`, and
+Files: on the phone, open https://github.com/LRosa2/SpeedBeep/releases and take the newest
+release. Download its `SpeedBeep-….apk`, and
 `SpeedBeep-spike.apk` from release v0.1.0 if you do Part A. Open each one to install it
 (allow installing from that source). A newer SpeedBeep installs over the old one and keeps
 the settings.
