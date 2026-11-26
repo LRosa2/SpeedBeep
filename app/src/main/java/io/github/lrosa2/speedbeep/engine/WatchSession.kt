@@ -52,11 +52,22 @@ class WatchSession(settings: Settings, startMs: Long, private var roads: RoadLoo
     private var lastCarMs: Long? = null
     private var source = SpeedSource.GPS
 
+    /** The newest GPS fix ignored while the car's speed was fresh: GPS's first reading at the handover. */
+    private var waitingGps: Fix? = null
+
     /** A GPS fix. In simple mode it is ignored while the car's speed is fresh (spec §4.5). */
     fun onFix(fix: Fix, nowMs: Long): WatchUpdate {
-        if (carIsFresh(nowMs)) return WatchUpdate(status, Sound.NONE)
+        if (carIsFresh(nowMs)) {
+            waitingGps = fix
+            return WatchUpdate(status, Sound.NONE)
+        }
         source = SpeedSource.GPS
-        return apply(rules.onReading(FixEvaluator.evaluate(fix, nowMs, settings.simpleMode, roads)))
+        val reading = FixEvaluator.evaluate(fix, nowMs, settings.simpleMode, roads)
+        val waiting = waitingGps
+        waitingGps = null
+        // At the handover an unusable fix must not waste the last good one: No GPS comes only 5 s after the car's last reading.
+        val use = if (reading.speedKmh == null && waiting != null) FixEvaluator.evaluate(waiting, nowMs, settings.simpleMode, roads) else reading
+        return apply(rules.onReading(use))
     }
 
     /** One reading from the car's OBD adapter, in whole km/h. Smart mode ignores it (spec §4.5). */
@@ -70,7 +81,16 @@ class WatchSession(settings: Settings, startMs: Long, private var roads: RoadLoo
 
     private fun carIsFresh(nowMs: Long) = settings.simpleMode && lastCarMs?.let { nowMs - it <= CAR_FRESH_MS } == true
 
-    fun onTick(nowMs: Long) = apply(rules.onTick(nowMs))
+    fun onTick(nowMs: Long): WatchUpdate {
+        val waiting = waitingGps
+        if (waiting != null && !carIsFresh(nowMs)) {
+            // The car just went silent: GPS takes over with the fix it already has (FixEvaluator drops it if too old).
+            waitingGps = null
+            source = SpeedSource.GPS
+            return apply(rules.onReading(FixEvaluator.evaluate(waiting, nowMs, settings.simpleMode, roads)))
+        }
+        return apply(rules.onTick(nowMs))
+    }
 
     fun quiet(nowMs: Long) = apply(rules.quietThisStretch(nowMs))
 

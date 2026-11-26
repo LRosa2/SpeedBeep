@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import io.github.lrosa2.speedbeep.engine.ConnectAttempt
 import io.github.lrosa2.speedbeep.engine.Elm327
 import io.github.lrosa2.speedbeep.engine.EventLog
 import io.github.lrosa2.speedbeep.engine.ObdLink
@@ -29,6 +30,8 @@ class ObdSource(
     @Volatile private var running = false
 
     @Volatile private var link: ObdLink? = null
+
+    @Volatile private var attempt: ConnectAttempt? = null
     private var thread: Thread? = null
 
     // OBD thread only.
@@ -46,6 +49,7 @@ class ObdSource(
     /** Main thread. No reading reaches [onSpeed] after this returns. */
     fun stop() {
         running = false
+        attempt?.cancel() // aborts a connect in progress
         link?.close() // unblocks a read
         thread?.interrupt()
         thread = null
@@ -73,7 +77,10 @@ class ObdSource(
     }
 
     private fun connectAndRead() {
-        val l = ObdLinks.open(context, address)
+        val a = ConnectAttempt()
+        attempt = a
+        if (!running) return
+        val l = ObdLinks.open(context, address, a)
         link = l
         if (!running) return
         // Setup replies are logged once per watch, not on every reconnect.

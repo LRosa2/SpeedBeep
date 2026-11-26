@@ -66,4 +66,23 @@ class CarSpeedTest {
         s.onFix(gps(500, 30.0), 500)
         assertEquals(SpeedSource.GPS, s.status.speedSource)
     }
+
+    @Test
+    fun `at the handover a GPS fix ignored while the car was fresh still counts when the next one is unusable`() {
+        val s = WatchSession(simple, 0)
+        listOf(60, 60).forEachIndexed { i, kmh -> s.onCarSpeed(kmh, i * 1_000L) }
+        // GPS half a second off the car's rhythm; after the adapter falls silent every fix is unusable.
+        fun bad(t: Long) = Fix(t, 47.0, 8.0, (60 / 3.6).toFloat(), 5f, 30f, 90f)
+        val updates = (1_500L..7_000L step 500L).map { t ->
+            when {
+                t % 1_000L == 0L -> s.onTick(t)
+                t <= 3_500L -> s.onFix(gps(t, 60.0), t)
+                else -> s.onFix(bad(t), t)
+            }
+        }
+        assertTrue(updates.none { it.status.phase == Phase.NO_GPS })
+        assertTrue(updates.none { it.sound == Sound.MAIN })
+        assertEquals(Phase.OVER, s.status.phase)
+        assertEquals(SpeedSource.GPS, s.status.speedSource)
+    }
 }

@@ -64,6 +64,21 @@ If time is short, skip Part A: SpeedBeep's own event log records the same things
    - **Back in town:** beeps again above 53.
 5. Park and turn the car off. After about 30 s the notification should go away.
 
+## Part D: OBD adapter (version 0.2.0 only)
+
+1. Plug the adapter into the car's OBD port (under the dashboard, driver's side). Pair it
+   in Android's Bluetooth settings (PIN usually 1234 or 0000).
+2. SpeedBeep → Settings:
+   - Mode: **Simple**
+   - **Record drives**: on
+   - OBD adapter → **Choose adapter** → pick it.
+3. Parked, ignition on: tap **Test adapter**. Expected: "Connected to … Car speed: 0 km/h."
+   If it fails, note the text it shows.
+4. Start watching and drive. The status line shows "· car" while the car's speed is in use.
+   Beeps as in Part C.
+5. Send back the event log and the last drive: the drive file has the car's speed next to
+   the GPS speed, to compare the two.
+
 ## Send back
 
 - Settings → **Share event log**

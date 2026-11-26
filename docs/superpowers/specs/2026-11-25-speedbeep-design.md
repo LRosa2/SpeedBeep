@@ -183,7 +183,7 @@ the context back to NORMAL.
   again. The rules get the car's reading as a usable speed (§4.1), with no position.
 - Smart mode keeps the GPS speed, because road matching needs the GPS position.
 - When several control units answer, the highest speed counts (D10). One failed request is
-  a missing reading; three in a row drop the connection.
+  a missing reading; three in a row, or no reply within 2 s, drop the connection.
 - GPS keeps running in both modes. It is the fallback, and it fills the drive recording,
   which gets a column with the car's speed next to each GPS fix.
 - The status line adds "· car" while the car's speed is in use. Switches between the car and

@@ -7,6 +7,7 @@ import android.bluetooth.BluetoothSocket
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.SystemClock
+import io.github.lrosa2.speedbeep.engine.ConnectAttempt
 import io.github.lrosa2.speedbeep.engine.ObdException
 import io.github.lrosa2.speedbeep.engine.ObdLink
 import java.io.IOException
@@ -17,9 +18,9 @@ class RfcommLink private constructor(private val socket: BluetoothSocket) : ObdL
     companion object {
         private val SPP: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 
-        /** Blocks while connecting (up to about 12 s). Throws [ObdException]. */
+        /** Blocks while connecting (up to about 12 s); [attempt] can abort it from another thread. Throws [ObdException]. */
         @SuppressLint("MissingPermission") // checked first: without "Nearby devices" Bluetooth calls throw
-        fun open(context: Context, address: String): RfcommLink {
+        fun open(context: Context, address: String, attempt: ConnectAttempt = ConnectAttempt()): RfcommLink {
             if (context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                 throw ObdException("\"Nearby devices\" is not allowed")
             }
@@ -28,18 +29,20 @@ class RfcommLink private constructor(private val socket: BluetoothSocket) : ObdL
             if (!adapter.isEnabled) throw ObdException("Bluetooth is off")
             val device = adapter.getRemoteDevice(address)
             return try {
-                RfcommLink(connect(device.createRfcommSocketToServiceRecord(SPP)))
+                RfcommLink(connect(device.createRfcommSocketToServiceRecord(SPP), attempt))
             } catch (first: IOException) {
                 // Some cheap copies only accept an unauthenticated connection.
                 try {
-                    RfcommLink(connect(device.createInsecureRfcommSocketToServiceRecord(SPP)))
+                    RfcommLink(connect(device.createInsecureRfcommSocketToServiceRecord(SPP), attempt))
                 } catch (second: IOException) {
                     throw ObdException("cannot connect to the adapter (${second.message ?: first.message})")
                 }
             }
         }
 
-        private fun connect(socket: BluetoothSocket): BluetoothSocket = try {
+        private fun connect(socket: BluetoothSocket, attempt: ConnectAttempt): BluetoothSocket = try {
+            attempt.onClose { runCatching { socket.close() } }
+            if (attempt.cancelled) throw ObdException("stopped")
             socket.connect()
             socket
         } catch (e: IOException) {
