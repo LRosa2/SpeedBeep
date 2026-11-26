@@ -3,12 +3,14 @@
 About 10 minutes parked and one drive of about 20 minutes, with some town streets and a
 stretch of motorway or 80 road. Afterwards, send back the two logs and the recorded drive.
 
-Files: `C:\work\tmp\speedbeep-apk\SpeedBeep-spike.apk` and `SpeedBeep-0.1.0.apk`.
-Copy them to the phone and open each one to install it (allow installing from that source).
+Files: on the phone, open the release page
+https://github.com/LRosa2/SpeedBeep/releases/tag/v0.1.0 (sign in to GitHub first: the repo
+is private). Download `SpeedBeep-0.1.0.apk`, and `SpeedBeep-spike.apk` if you do Part A.
+Open each one to install it (allow installing from that source).
 
 ## Part A: the spike, parked (decides D14)
 
-Follow `C:\work\tmp\speedbeep-spike\SPIKE-TEST-PROTOCOL.md`, steps 1–7. Then uninstall the
+Follow [SPIKE-TEST.md](SPIKE-TEST.md), steps 1–7. Then uninstall the
 spike app, so it does not also react to the car.
 
 If time is short, skip Part A: SpeedBeep's own event log records the same things.
