@@ -33,6 +33,9 @@ data class Settings(
     /** Bluetooth address of the linked car, upper case; null when no car is linked. */
     val carAddress: String? = null,
     val carName: String? = null,
+    /** The paired ELM327 adapter (spec §4.5), upper case; null when none is chosen. */
+    val obdAddress: String? = null,
+    val obdName: String? = null,
 ) {
     companion object {
         val THRESHOLD_KMH = 20..150
@@ -90,6 +93,8 @@ object SettingsCodec {
         put("carStart", s.carStart.name)
         s.carAddress?.let { put("carAddress", it) }
         s.carName?.let { put("carName", it) }
+        s.obdAddress?.let { put("obdAddress", it) }
+        s.obdName?.let { put("obdName", it) }
     }
 
     fun decode(m: Map<String, Any?>): Settings {
@@ -114,6 +119,8 @@ object SettingsCodec {
             carStart = enum("carStart", d.carStart, CarStart.entries.toTypedArray()),
             carAddress = str("carAddress"),
             carName = str("carName"),
+            obdAddress = str("obdAddress"),
+            obdName = str("obdName"),
         ).clamped()
     }
 }

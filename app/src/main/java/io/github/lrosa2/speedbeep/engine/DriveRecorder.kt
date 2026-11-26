@@ -28,11 +28,12 @@ class DriveRecorder(private val dir: File, private val zone: ZoneId = ZoneId.sys
     var error: String? = null
         private set
 
-    fun record(fix: Fix, wallNowMs: Long) {
+    /** [obdKmh]: the car's speed next to this GPS fix, when the adapter has a fresh reading (spec §4.5). */
+    fun record(fix: Fix, wallNowMs: Long, obdKmh: Int? = null) {
         if (error != null) return
         try {
             val w = writer ?: open(fix, wallNowMs)
-            w.write(DriveCsv.line(fix, startMs))
+            w.write(DriveCsv.line(fix, startMs, obdKmh))
             w.newLine()
             if (++lines % 10 == 0) w.flush()
         } catch (e: IOException) {

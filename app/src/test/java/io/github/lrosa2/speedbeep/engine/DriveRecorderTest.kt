@@ -3,6 +3,7 @@ package io.github.lrosa2.speedbeep.engine
 import io.github.lrosa2.speedbeep.core.rules.Fix
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
@@ -43,5 +44,15 @@ class DriveRecorderTest {
         File(dir, "drive-20261125-080000.csv").writeText("")
         File(dir, "notes.txt").writeText("")
         assertEquals("drive-20261125-080000.csv", DriveRecorder.latest(dir)!!.name)
+    }
+
+    @Test
+    fun `the car's speed is recorded next to the GPS fix`() {
+        val recorder = DriveRecorder(dir)
+        recorder.record(Fix(0, 47.0, 8.0, 16.7f, 0.5f, 4f, 90f), 0, obdKmh = 61)
+        recorder.close()
+        val lines = recorder.file!!.readLines()
+        assertEquals(DriveCsv.HEADER, lines[0])
+        assertTrue(lines[2].endsWith(",61"), lines[2])
     }
 }

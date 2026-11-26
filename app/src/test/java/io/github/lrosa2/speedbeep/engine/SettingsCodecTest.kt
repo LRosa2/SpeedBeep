@@ -85,4 +85,13 @@ class SettingsCodecTest {
         assertEquals(11, Settings(reminderIntervalS = 10).stepReminder(+1).reminderIntervalS)
         assertEquals(60, Settings(reminderIntervalS = 60).stepReminder(+1).reminderIntervalS)
     }
+
+    @Test
+    fun `the OBD adapter survives a save and load, and settings saved by 0_1_0 have none`() {
+        val s = Settings(mode = Mode.SIMPLE, obdAddress = "00:1D:A5:68:98:8B", obdName = "OBDII")
+        assertEquals(s, SettingsCodec.decode(SettingsCodec.encode(s)))
+        val saved010 = SettingsCodec.decode(mapOf("thresholdKmh" to 55, "mode" to "SIMPLE"))
+        assertNull(saved010.obdAddress)
+        assertEquals(55, saved010.thresholdKmh)
+    }
 }
